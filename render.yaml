@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: secure-p2p-signaling
+    runtime: node
+    rootDir: signaling_server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: NODE_ENV
+        value: production

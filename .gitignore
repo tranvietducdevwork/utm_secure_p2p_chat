@@ -1,0 +1,6 @@
+.DS_Store
+signaling_server/node_modules/
+signaling_server/.env
+flutter_app/build/
+flutter_app/.dart_tool/
+flutter_app/.flutter-plugins-dependencies

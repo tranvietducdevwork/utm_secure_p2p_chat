@@ -1,0 +1,19 @@
+{
+  "name": "secure-p2p-signaling-server",
+  "version": "1.0.0",
+  "description": "Signaling server for P2P encrypted chat - no message storage",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "stop": "kill $(lsof -t -i:3000) 2>/dev/null || true"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "socket.io": "^4.8.1",
+    "uuid": "^11.0.5"
+  }
+}
