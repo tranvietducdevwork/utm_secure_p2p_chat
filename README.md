@@ -90,7 +90,25 @@ flutter run --dart-define=SIGNALING_URL=http://127.0.0.1:3000   # iOS simulator
 - **Flutter app**: UI, WebRTC, mã hóa X25519 + AES-GCM, SQLite local, **phòng chat theo mã**
 - **Signaling server**: JWT auth, relay ICE/SDP + tin nhắn E2E trong cùng phòng
 
-## Sinh khóa luận Word
+## Demo trước hội đồng
+
+Mở trên trình duyệt: `https://utm-secure-p2p-chat.onrender.com/health`
+
+### Kịch bản trình bày
+
+1. **Chế độ mặc định (E2E)** — App → icon 🧪 → tắt hết toggle → 2 máy chat → `/health` → `Tin nhắn lưu: 0`
+2. **Lưu bản mã hóa** — Bật "Server lưu tin nhắn" → chat → `/health` thấy bảng ciphertext → **Đọc được? Không**
+3. **Lưu plaintext (so sánh)** — Bật thêm "Lưu plaintext" → chat → `/health` thấy nội dung rõ → **Hacker đọc được**
+
+### Câu hỏi hội đồng: Hack DB server có đọc được tin nhắn?
+
+| Dữ liệu trên server | Đọc được? |
+|---------------------|-----------|
+| Chế độ E2E mặc định | Không — server không lưu tin nhắn |
+| Lưu ciphertext (demo) | Không — chỉ thấy chuỗi mã hóa |
+| Lưu plaintext (demo) | Có — mô phỏng chat server truyền thống |
+| SQLite trên điện thoại | Có — tin nhắn lưu local trên máy user |
+
 
 ```bash
 python3 generate_kltn.py

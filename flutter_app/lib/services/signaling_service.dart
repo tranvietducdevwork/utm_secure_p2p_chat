@@ -246,9 +246,17 @@ class SignalingService {
     _socket?.emit('ice-candidate', {'to': to, 'candidate': candidate});
   }
 
-  void sendEncryptedMessage({required String to, required String payload}) {
+  void sendEncryptedMessage({
+    required String to,
+    required String payload,
+    String? demoPlaintext,
+  }) {
     if (_socket == null || !_socket!.connected) return;
-    _socket!.emit('e2e-message', {'to': to, 'payload': payload});
+    _socket!.emit('e2e-message', {
+      'to': to,
+      'payload': payload,
+      if (demoPlaintext != null) 'demoPlaintext': demoPlaintext,
+    });
   }
 
   Future<void> disconnect() async {

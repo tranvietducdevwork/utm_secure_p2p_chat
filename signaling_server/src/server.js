@@ -5,6 +5,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Server } = require('socket.io');
 const userStore = require('./store/userStore');
+const messageStore = require('./store/messageStore');
+const demoSettings = require('./store/demoSettings');
+const { buildHealthHtml, buildHealthJson } = require('./healthPage');
 const { registerSocketHandlers, JWT_SECRET } = require('./socket/handlers');
 
 const PORT = process.env.PORT || 3000;
@@ -22,9 +25,40 @@ function signToken(username) {
   return jwt.sign({ username }, JWT_SECRET, { expiresIn: '7d' });
 }
 
-// Health check
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', ...userStore.getStats() });
+// Health check + demo dashboard
+app.get('/health', (req, res) => {
+  const wantsJson =
+    req.query.format === 'json' ||
+    (req.headers.accept && req.headers.accept.includes('application/json'));
+  if (wantsJson) {
+    return res.json(buildHealthJson());
+  }
+  res.type('html').send(buildHealthHtml());
+});
+
+// Demo settings (for thesis showcase)
+app.get('/api/demo/settings', (_req, res) => {
+  res.json(demoSettings.getSettings());
+});
+
+app.post('/api/demo/settings', (req, res) => {
+  const { storeMessagesOnServer, storePlaintextOnServer, clearMessages } = req.body || {};
+  if (typeof storeMessagesOnServer === 'boolean') {
+    demoSettings.setStoreMessages(storeMessagesOnServer);
+    if (!storeMessagesOnServer) {
+      messageStore.clearMessages();
+    }
+  }
+  if (typeof storePlaintextOnServer === 'boolean') {
+    demoSettings.setStorePlaintext(storePlaintextOnServer);
+  }
+  if (clearMessages === true) {
+    messageStore.clearMessages();
+  }
+  res.json({
+    ...demoSettings.getSettings(),
+    messagesStored: messageStore.getStats().messagesStored,
+  });
 });
 
 // Register - stores only username, password hash, and public key

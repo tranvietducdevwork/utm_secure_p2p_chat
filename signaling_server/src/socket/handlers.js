@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
 const userStore = require('../store/userStore');
 const roomStore = require('../store/roomStore');
+const messageStore = require('../store/messageStore');
+const demoSettings = require('../store/demoSettings');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secure-p2p-chat-dev-secret-change-in-production';
 
@@ -129,8 +131,23 @@ function registerSocketHandlers(io) {
       }
     });
 
-    socket.on('e2e-message', ({ to, payload }) => {
+    socket.on('e2e-message', ({ to, payload, demoPlaintext }) => {
       if (!currentUser || !payload || !canTalk(currentUser, to)) return;
+
+      const demo = demoSettings.getSettings();
+      if (demo.storeMessagesOnServer) {
+        const usePlaintext = demo.storePlaintextOnServer && demoPlaintext;
+        messageStore.addMessage({
+          from: currentUser.username,
+          to,
+          content: usePlaintext ? String(demoPlaintext) : String(payload),
+          encrypted: !usePlaintext,
+        });
+        console.log(
+          `[demo-store] ${currentUser.username} -> ${to} (${usePlaintext ? 'plaintext' : 'ciphertext'})`
+        );
+      }
+
       const targetSocket = userStore.getSocketId(to);
       if (targetSocket) {
         io.to(targetSocket).emit('e2e-message', { from: currentUser.username, payload });

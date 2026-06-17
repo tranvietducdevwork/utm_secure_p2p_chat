@@ -10,6 +10,7 @@ import 'core/log/app_logger.dart';
 import 'models/message.dart';
 import 'models/user.dart';
 import 'services/auth_service.dart';
+import 'services/demo_service.dart';
 import 'services/local_db_service.dart';
 import 'services/signaling_service.dart';
 
@@ -21,10 +22,12 @@ class AppState extends ChangeNotifier {
     AuthService? authService,
     SignalingService? signaling,
     LocalDbService? localDb,
+    DemoService? demoService,
   })  : serverUrl = serverUrl,
         authService = authService ?? AuthService(serverUrl),
         signaling = signaling ?? SignalingService(serverUrl),
-        localDb = localDb ?? LocalDbService();
+        localDb = localDb ?? LocalDbService(),
+        demoService = demoService ?? DemoService(serverUrl);
 
   static const _roomKey = 'last_room_code';
 
@@ -32,12 +35,17 @@ class AppState extends ChangeNotifier {
   AuthService authService;
   final SignalingService signaling;
   final LocalDbService localDb;
+  final DemoService demoService;
 
   ChatUser? currentUser;
   SimpleKeyPair? localKeyPair;
   String? currentRoomCode;
   String? lastError;
   String connectionStatus = '';
+  DemoSettings demoSettings = const DemoSettings(
+    storeMessagesOnServer: false,
+    storePlaintextOnServer: false,
+  );
 
   final Map<String, ChatSession> _sessions = {};
   final Map<String, List<ChatMessage>> _chatCache = {};
@@ -63,6 +71,7 @@ class AppState extends ChangeNotifier {
         currentRoomCode = prefs.getString(_roomKey);
         notifyListeners();
         unawaited(_connectSignalingInBackground(token));
+        unawaited(loadDemoSettings());
       } else {
         AppLogger.i('AppState', 'Chưa có phiên đăng nhập');
       }
@@ -126,6 +135,38 @@ class AppState extends ChangeNotifier {
     lastError = null;
     notifyListeners();
   }
+
+  Future<void> loadDemoSettings() async {
+    try {
+      demoSettings = await demoService.fetchSettings();
+      notifyListeners();
+    } catch (e) {
+      AppLogger.w('AppState', 'loadDemoSettings: $e');
+    }
+  }
+
+  Future<void> setDemoStoreMessages(bool enabled) async {
+    demoSettings = await demoService.updateSettings(
+      storeMessagesOnServer: enabled,
+      clearMessages: !enabled,
+    );
+    if (!enabled) {
+      demoSettings = demoSettings.copyWith(storePlaintextOnServer: false);
+    }
+    notifyListeners();
+  }
+
+  Future<void> setDemoStorePlaintext(bool enabled) async {
+    demoSettings = await demoService.updateSettings(storePlaintextOnServer: enabled);
+    notifyListeners();
+  }
+
+  Future<void> clearDemoMessages() async {
+    demoSettings = await demoService.updateSettings(clearMessages: true);
+    notifyListeners();
+  }
+
+  String get demoHealthUrl => demoService.healthPageUrl;
 
   void _wireSignaling() {
     if (_signalingWired) return;
@@ -299,6 +340,7 @@ class AppState extends ChangeNotifier {
       remoteUsername: peer.username,
       remotePublicKeyBase64: publicKey,
       isInitiator: isInitiator,
+      sendDemoPlaintext: demoSettings.storePlaintextOnServer,
       onIncomingMessage: (text) {
         unawaited(_onIncomingMessage(peer.username, text));
       },

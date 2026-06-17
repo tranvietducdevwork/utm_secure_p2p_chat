@@ -18,6 +18,7 @@ class ChatSession {
     required this.remoteUsername,
     required this.remotePublicKeyBase64,
     required this.isInitiator,
+    this.sendDemoPlaintext = false,
     this.onIncomingMessage,
   });
 
@@ -27,6 +28,7 @@ class ChatSession {
   final String remoteUsername;
   final String remotePublicKeyBase64;
   final bool isInitiator;
+  final bool sendDemoPlaintext;
   final void Function(String plaintext)? onIncomingMessage;
 
   PeerConnectionManager? _p2p;
@@ -128,7 +130,11 @@ class ChatSession {
       _setMode(ChatTransportMode.relay);
     }
 
-    signaling.sendEncryptedMessage(to: remoteUsername, payload: encrypted);
+    signaling.sendEncryptedMessage(
+      to: remoteUsername,
+      payload: encrypted,
+      demoPlaintext: sendDemoPlaintext ? plaintext : null,
+    );
     debugPrint('Sent relay message to $remoteUsername');
     return true;
   }

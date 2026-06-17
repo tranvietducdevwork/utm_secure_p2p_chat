@@ -7,6 +7,7 @@ import '../../config/app_config.dart';
 import '../../core/errors/app_errors.dart';
 import '../../models/user.dart';
 import '../chat/chat_screen.dart';
+import '../demo/demo_settings_sheet.dart';
 
 class RoomScreen extends StatefulWidget {
   const RoomScreen({super.key});
@@ -75,6 +76,17 @@ class _RoomScreenState extends State<RoomScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.science_outlined),
+            tooltip: 'Demo hội đồng',
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                builder: (_) => const DemoSettingsSheet(),
+              );
+            },
+          ),
           if (inRoom)
             IconButton(
               icon: const Icon(Icons.refresh),
