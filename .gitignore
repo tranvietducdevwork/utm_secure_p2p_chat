@@ -1,5 +1,6 @@
 .DS_Store
 signaling_server/node_modules/
+signaling_server/data/users.json
 signaling_server/.env
 flutter_app/build/
 flutter_app/.dart_tool/

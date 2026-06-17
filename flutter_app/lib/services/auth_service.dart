@@ -1,10 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/app_config.dart';
 import '../core/crypto/e2e_crypto.dart';
+import '../core/errors/app_errors.dart';
+import '../core/log/app_logger.dart';
 import '../models/user.dart';
 
 class AuthService {
@@ -20,86 +24,119 @@ class AuthService {
     required String username,
     required String password,
   }) async {
-    final keyPair = await E2ECrypto.generateKeyPair();
-    final publicKey = await keyPair.extractPublicKey();
-    final publicKeyBase64 = await E2ECrypto.publicKeyToBase64(publicKey);
-    final privateKeyBase64 = await E2ECrypto.privateKeyToBase64(keyPair);
+    AppLogger.i('Auth', 'POST /api/register user=$username url=$serverUrl');
+    try {
+      final keyPair = await E2ECrypto.generateKeyPair();
+      final publicKey = await keyPair.extractPublicKey();
+      final publicKeyBase64 = await E2ECrypto.publicKeyToBase64(publicKey);
+      final privateKeyBase64 = await E2ECrypto.privateKeyToBase64(keyPair);
 
-    final response = await http.post(
-      Uri.parse('$serverUrl/api/register'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'username': username,
-        'password': password,
-        'publicKey': publicKeyBase64,
-      }),
-    );
+      final response = await http
+          .post(
+            Uri.parse('$serverUrl/api/register'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'username': username,
+              'password': password,
+              'publicKey': publicKeyBase64,
+            }),
+          )
+          .timeout(AppConfig.signalingTimeout);
 
-    if (response.statusCode != 201) {
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      throw Exception(body['error'] ?? 'Registration failed');
+      AppLogger.i('Auth', 'register status=${response.statusCode} body=${response.body}');
+
+      if (response.statusCode != 201) {
+        final body = _decodeBody(response.body);
+        throw Exception(AppErrors.authHttpError(response.statusCode, body?['error'] as String?));
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      await _persistSession(
+        token: data['token'] as String,
+        username: username,
+        privateKeyBase64: privateKeyBase64,
+        publicKeyBase64: publicKeyBase64,
+      );
+      await _syncPublicKeyToServer(data['token'] as String, publicKeyBase64);
+      return ChatUser.fromJson(data['user'] as Map<String, dynamic>);
+    } catch (e, st) {
+      AppLogger.e('Auth', 'register failed', e, st);
+      if (e is Exception) rethrow;
+      throw Exception(AppErrors.friendly(e, context: 'Đăng ký'));
     }
-
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    await _persistSession(
-      token: data['token'] as String,
-      username: username,
-      privateKeyBase64: privateKeyBase64,
-      publicKeyBase64: publicKeyBase64,
-    );
-    await _syncPublicKeyToServer(data['token'] as String, publicKeyBase64);
-    return ChatUser.fromJson(data['user'] as Map<String, dynamic>);
   }
 
   Future<ChatUser> login({
     required String username,
     required String password,
   }) async {
-    final response = await http.post(
-      Uri.parse('$serverUrl/api/login'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'username': username, 'password': password}),
-    );
+    AppLogger.i('Auth', 'POST /api/login user=$username url=$serverUrl');
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$serverUrl/api/login'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'username': username, 'password': password}),
+          )
+          .timeout(AppConfig.signalingTimeout);
 
-    if (response.statusCode != 200) {
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      throw Exception(body['error'] ?? 'Login failed');
+      AppLogger.i('Auth', 'login status=${response.statusCode} body=${response.body}');
+
+      if (response.statusCode != 200) {
+        final body = _decodeBody(response.body);
+        throw Exception(AppErrors.authHttpError(response.statusCode, body?['error'] as String?));
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final user = ChatUser.fromJson(data['user'] as Map<String, dynamic>);
+      final token = data['token'] as String;
+
+      final prefs = await SharedPreferences.getInstance();
+      var privateKeyBase64 = prefs.getString(_privateKeyKey);
+      var publicKeyBase64 = prefs.getString(_publicKeyKey);
+
+      if (privateKeyBase64 == null || publicKeyBase64 == null) {
+        final keyPair = await E2ECrypto.generateKeyPair();
+        final publicKey = await keyPair.extractPublicKey();
+        publicKeyBase64 = await E2ECrypto.publicKeyToBase64(publicKey);
+        privateKeyBase64 = await E2ECrypto.privateKeyToBase64(keyPair);
+      }
+
+      await _persistSession(
+        token: token,
+        username: username,
+        privateKeyBase64: privateKeyBase64,
+        publicKeyBase64: publicKeyBase64,
+      );
+      await _syncPublicKeyToServer(token, publicKeyBase64);
+      return user;
+    } catch (e, st) {
+      AppLogger.e('Auth', 'login failed', e, st);
+      if (e is Exception) rethrow;
+      throw Exception(AppErrors.friendly(e, context: 'Đăng nhập'));
     }
+  }
 
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    final user = ChatUser.fromJson(data['user'] as Map<String, dynamic>);
-    final token = data['token'] as String;
-
-    final prefs = await SharedPreferences.getInstance();
-    var privateKeyBase64 = prefs.getString(_privateKeyKey);
-    var publicKeyBase64 = prefs.getString(_publicKeyKey);
-
-    if (privateKeyBase64 == null || publicKeyBase64 == null) {
-      final keyPair = await E2ECrypto.generateKeyPair();
-      final publicKey = await keyPair.extractPublicKey();
-      publicKeyBase64 = await E2ECrypto.publicKeyToBase64(publicKey);
-      privateKeyBase64 = await E2ECrypto.privateKeyToBase64(keyPair);
+  Map<String, dynamic>? _decodeBody(String body) {
+    try {
+      return jsonDecode(body) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
     }
-
-    await _persistSession(
-      token: token,
-      username: username,
-      privateKeyBase64: privateKeyBase64,
-      publicKeyBase64: publicKeyBase64,
-    );
-    await _syncPublicKeyToServer(token, publicKeyBase64);
-    return user;
   }
 
   Future<void> _syncPublicKeyToServer(String token, String publicKeyBase64) async {
-    await http.post(
-      Uri.parse('$serverUrl/api/sync-public-key'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({'publicKey': publicKeyBase64}),
-    );
+    AppLogger.d('Auth', 'POST /api/sync-public-key');
+    await http
+        .post(
+          Uri.parse('$serverUrl/api/sync-public-key'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({'publicKey': publicKeyBase64}),
+        )
+        .timeout(AppConfig.signalingTimeout);
   }
 
   Future<void> _persistSession({
@@ -133,20 +170,21 @@ class AuthService {
   }
 
   Future<void> logout() async {
+    AppLogger.i('Auth', 'logout');
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_usernameKey);
   }
 
   Future<String> fetchPublicKey(String username) async {
-    final response = await http.get(
-      Uri.parse('$serverUrl/api/users/$username/public-key'),
-    );
+    AppLogger.d('Auth', 'GET public-key for $username');
+    final response = await http
+        .get(Uri.parse('$serverUrl/api/users/$username/public-key'))
+        .timeout(AppConfig.signalingTimeout);
     if (response.statusCode != 200) {
-      throw Exception('Cannot fetch public key for $username');
+      throw Exception('Không lấy được public key của $username (HTTP ${response.statusCode})');
     }
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     return data['publicKey'] as String;
   }
-
 }

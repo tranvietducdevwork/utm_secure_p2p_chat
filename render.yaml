@@ -7,6 +7,6 @@ services:
     startCommand: npm start
     envVars:
       - key: JWT_SECRET
-        generateValue: true
+        value: utm-kltn-secret-2026-abc
       - key: NODE_ENV
         value: production

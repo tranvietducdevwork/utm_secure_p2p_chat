@@ -1,17 +1,21 @@
 import 'dart:async';
 
 import 'package:cryptography/cryptography.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../core/chat/chat_session.dart';
-import '../models/message.dart';
-import '../models/user.dart';
-import '../services/auth_service.dart';
-import '../services/local_db_service.dart';
-import '../services/signaling_service.dart';
+import 'core/chat/chat_session.dart';
+import 'core/errors/app_errors.dart';
+import 'core/log/app_logger.dart';
+import 'models/message.dart';
+import 'models/user.dart';
+import 'services/auth_service.dart';
+import 'services/local_db_service.dart';
+import 'services/signaling_service.dart';
 
 class AppState extends ChangeNotifier {
+  static final navigatorKey = GlobalKey<NavigatorState>();
+
   AppState({
     required String serverUrl,
     AuthService? authService,
@@ -32,33 +36,95 @@ class AppState extends ChangeNotifier {
   ChatUser? currentUser;
   SimpleKeyPair? localKeyPair;
   String? currentRoomCode;
+  String? lastError;
+  String connectionStatus = '';
+
   final Map<String, ChatSession> _sessions = {};
   final Map<String, List<ChatMessage>> _chatCache = {};
   bool _signalingWired = false;
 
   bool get isLoggedIn => currentUser != null;
+  bool get isSignalingConnected => signaling.isConnected;
   List<ChatUser> get roomPeers => signaling.roomUsers;
 
+  /// Khởi động nhanh — không chặn UI chờ server cloud.
   Future<void> initialize() async {
-    final token = await authService.getToken();
-    final username = await authService.getUsername();
-    localKeyPair = await authService.getLocalKeyPair();
-    _wireSignaling();
-    if (token != null && username != null) {
+    AppLogger.i('AppState', 'initialize() start');
+    try {
+      final token = await authService.getToken();
+      final username = await authService.getUsername();
+      localKeyPair = await authService.getLocalKeyPair();
+      _wireSignaling();
+
+      if (token != null && username != null) {
+        AppLogger.i('AppState', 'Khôi phục phiên: $username');
+        currentUser = ChatUser(username: username, publicKey: '', online: false);
+        final prefs = await SharedPreferences.getInstance();
+        currentRoomCode = prefs.getString(_roomKey);
+        notifyListeners();
+        unawaited(_connectSignalingInBackground(token));
+      } else {
+        AppLogger.i('AppState', 'Chưa có phiên đăng nhập');
+      }
+    } catch (e, st) {
+      AppLogger.e('AppState', 'initialize() lỗi', e, st);
+      lastError = AppErrors.friendly(e, context: 'Khởi động app');
+      rethrow;
+    }
+  }
+
+  Future<void> _connectSignalingInBackground(String token) async {
+    connectionStatus = 'Đang kết nối server...';
+    lastError = null;
+    notifyListeners();
+
+    try {
+      AppLogger.i('AppState', 'Kết nối signaling...');
       await signaling.connect(token);
-      currentUser = ChatUser(username: username, publicKey: '', online: true);
-      final prefs = await SharedPreferences.getInstance();
-      currentRoomCode = prefs.getString(_roomKey);
-      if (currentRoomCode != null && currentRoomCode!.isNotEmpty) {
+      currentUser = currentUser?.copyWith(online: true);
+      connectionStatus = '';
+      AppLogger.i('AppState', 'Signaling đã kết nối');
+
+      final savedRoom = currentRoomCode;
+      if (savedRoom != null && savedRoom.isNotEmpty) {
+        connectionStatus = 'Đang vào lại phòng $savedRoom...';
+        notifyListeners();
         try {
-          await joinRoom(currentRoomCode!);
-        } catch (_) {
+          await joinRoom(savedRoom);
+          AppLogger.i('AppState', 'Vào lại phòng $savedRoom thành công');
+        } catch (e) {
+          AppLogger.w('AppState', 'Không vào lại được phòng: $e');
           currentRoomCode = null;
+          final prefs = await SharedPreferences.getInstance();
           await prefs.remove(_roomKey);
+          lastError = AppErrors.friendly(e, context: 'Vào phòng');
         }
+      }
+    } catch (e, st) {
+      AppLogger.e('AppState', 'Kết nối signaling thất bại', e, st);
+      lastError = AppErrors.friendly(e, context: 'Kết nối server');
+      connectionStatus = 'Chưa kết nối server';
+    } finally {
+      if (connectionStatus.startsWith('Đang')) {
+        connectionStatus = signaling.isConnected ? '' : 'Chưa kết nối server';
       }
       notifyListeners();
     }
+  }
+
+  Future<void> retrySignalingConnection() async {
+    final token = await authService.getToken();
+    if (token == null) {
+      lastError = 'Chưa đăng nhập';
+      notifyListeners();
+      return;
+    }
+    await _connectSignalingInBackground(token);
+  }
+
+  void clearLastError() {
+    lastError = null;
+    notifyListeners();
   }
 
   void _wireSignaling() {
@@ -70,7 +136,17 @@ class AppState extends ChangeNotifier {
       currentRoomCode = code;
       notifyListeners();
     };
-    signaling.onRoomError = (msg) => debugPrint('Room error: $msg');
+    signaling.onRoomError = (msg) {
+      AppLogger.w('AppState', 'Room error: $msg');
+      lastError = msg;
+      notifyListeners();
+    };
+    signaling.onConnectionError = (msg) {
+      AppLogger.e('AppState', 'Socket error: $msg');
+      lastError = msg;
+      connectionStatus = 'Mất kết nối server';
+      notifyListeners();
+    };
 
     signaling.onWebRtcOffer = (data) async {
       final from = data['from'] as String? ?? '';
@@ -120,20 +196,24 @@ class AppState extends ChangeNotifier {
 
   Future<void> register(String username, String password) async {
     _wireSignaling();
+    AppLogger.i('AppState', 'Đăng ký: $username');
+    lastError = null;
     currentUser = await authService.register(username: username, password: password);
     localKeyPair = await authService.getLocalKeyPair();
-    final token = await authService.getToken();
-    await signaling.connect(token!);
     notifyListeners();
+    final token = await authService.getToken();
+    if (token != null) unawaited(_connectSignalingInBackground(token));
   }
 
   Future<void> login(String username, String password) async {
     _wireSignaling();
+    AppLogger.i('AppState', 'Đăng nhập: $username');
+    lastError = null;
     currentUser = await authService.login(username: username, password: password);
     localKeyPair = await authService.getLocalKeyPair();
-    final token = await authService.getToken();
-    await signaling.connect(token!);
     notifyListeners();
+    final token = await authService.getToken();
+    if (token != null) unawaited(_connectSignalingInBackground(token));
   }
 
   Future<void> joinRoom(String roomCode) async {
@@ -141,6 +221,8 @@ class AppState extends ChangeNotifier {
     if (code.length < 4) {
       throw Exception('Mã phòng tối thiểu 4 ký tự');
     }
+    AppLogger.i('AppState', 'Vào phòng: $code');
+    lastError = null;
     await signaling.joinRoom(code);
     currentRoomCode = signaling.roomCode ?? code;
     final prefs = await SharedPreferences.getInstance();
@@ -162,6 +244,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    AppLogger.i('AppState', 'Đăng xuất');
     await leaveRoom();
     for (final session in _sessions.values) {
       await session.dispose();
@@ -170,7 +253,10 @@ class AppState extends ChangeNotifier {
     await signaling.disconnect();
     await authService.logout();
     currentUser = null;
+    lastError = null;
+    connectionStatus = '';
     notifyListeners();
+    navigatorKey.currentState?.popUntil((route) => route.isFirst);
   }
 
   List<ChatMessage> messagesFor(String peerUsername) {

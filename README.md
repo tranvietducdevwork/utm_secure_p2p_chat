@@ -14,13 +14,38 @@ Tin nhắn qua mạng di động dùng **relay đã mã hóa** qua server cloud 
 
 ### Render (miễn phí)
 
-1. Đẩy repo lên GitHub
-2. Vào [render.com](https://render.com) → **New Web Service**
-3. Root directory: `signaling_server`
-4. Build: `npm install`
-5. Start: `npm start`
-6. Thêm biến môi trường `JWT_SECRET` (chuỗi ngẫu nhiên dài)
-7. Copy URL dạng `https://xxx.onrender.com`
+**Quan trọng:** Repo có file Python (`generate_kltn.py`) ở thư mục gốc — Render sẽ **nhận nhầm là Python** nếu không cấu hình đúng.
+
+#### Cách A — Sửa service hiện tại (Settings)
+
+Vào service trên Render → **Settings** → **Build & Deploy**, sửa:
+
+| Ô | Giá trị |
+|---|--------|
+| **Language** (hoặc Runtime) | **Node** (KHÔNG chọn Python) |
+| **Root Directory** | `signaling_server` |
+| **Build Command** | `npm install` |
+| **Start Command** | `npm start` |
+
+**Environment** → thêm:
+
+| Key | Value |
+|-----|--------|
+| `JWT_SECRET` | `utm-kltn-secret-2026-abc` |
+
+Save → **Manual Deploy**.
+
+#### Cách B — Tạo mới bằng Blueprint (khuyên dùng)
+
+1. [render.com](https://render.com) → **New** → **Blueprint**
+2. Chọn repo `utm_secure_p2p_chat`
+3. Render đọc `render.yaml` tự động (Node + `signaling_server`)
+
+#### Kiểm tra deploy thành công
+
+Mở `https://YOUR-APP.onrender.com/health` — phải thấy JSON `{"status":"ok",...}`
+
+Copy URL dạng `https://xxx.onrender.com` đưa vào Flutter app.
 
 ### Cấu hình URL trong Flutter
 

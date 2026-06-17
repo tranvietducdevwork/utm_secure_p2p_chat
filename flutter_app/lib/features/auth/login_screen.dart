@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../app_state.dart';
-import '../room/room_screen.dart';
+import '../../core/errors/app_errors.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,29 +17,47 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isRegister = false;
   bool _loading = false;
   String? _error;
+  String? _status;
 
   Future<void> _submit() async {
     setState(() {
       _loading = true;
       _error = null;
+      _status = _isRegister ? 'Đang đăng ký...' : 'Đang đăng nhập...';
     });
     try {
       final app = context.read<AppState>();
       final username = _usernameController.text.trim();
       final password = _passwordController.text;
+
+      if (username.length < 3) {
+        throw Exception('Tên đăng nhập tối thiểu 3 ký tự');
+      }
+      if (password.length < 6) {
+        throw Exception('Mật khẩu tối thiểu 6 ký tự');
+      }
+
+      setState(() => _status = 'Đang kết nối server (có thể mất ~1 phút)...');
+
       if (_isRegister) {
         await app.register(username, password);
       } else {
         await app.login(username, password);
       }
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const RoomScreen()),
-      );
+      if (!app.isLoggedIn) {
+        throw Exception('Đăng nhập thất bại');
+      }
+      // AuthGate tự chuyển sang RoomScreen khi isLoggedIn = true
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = AppErrors.friendly(e, context: _isRegister ? 'Đăng ký' : 'Đăng nhập'));
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _status = null;
+        });
+      }
     }
   }
 
@@ -90,26 +108,54 @@ class _LoginScreenState extends State<LoginScreen> {
                   labelText: 'Mật khẩu',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.key),
+                  helperText: 'Tối thiểu 6 ký tự',
                 ),
               ),
+              if (_status != null) ...[
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(_status!, style: TextStyle(color: Colors.grey[700]))),
+                  ],
+                ),
+              ],
               if (_error != null) ...[
                 const SizedBox(height: 12),
-                Text(_error!, style: const TextStyle(color: Colors.red)),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(_error!, style: TextStyle(color: Colors.red.shade900)),
+                ),
               ],
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: _loading ? null : _submit,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: _loading
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : Text(_isRegister ? 'Đăng ký' : 'Đăng nhập'),
+                  child: Text(_isRegister ? 'Đăng ký' : 'Đăng nhập'),
                 ),
               ),
               TextButton(
                 onPressed: _loading ? null : () => setState(() => _isRegister = !_isRegister),
                 child: Text(_isRegister ? 'Đã có tài khoản? Đăng nhập' : 'Chưa có tài khoản? Đăng ký'),
               ),
+              if (!_isRegister) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Nếu đăng nhập báo "Invalid credentials": server có thể đã khởi động lại — hãy đăng ký lại tài khoản.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                ),
+              ],
             ],
           ),
         ),

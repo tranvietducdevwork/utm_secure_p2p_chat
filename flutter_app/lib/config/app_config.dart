@@ -8,12 +8,16 @@
 class AppConfig {
   static const cloudSignalingUrl = String.fromEnvironment(
     'SIGNALING_URL',
-    defaultValue: 'https://secure-p2p-chat.onrender.com',
+    defaultValue: 'https://utm-secure-p2p-chat.onrender.com',
   );
 
   /// URL signaling — dùng server cloud, hoạt động trên 4G/WiFi.
   static String get serverUrl => cloudSignalingUrl;
 
+  /// Timeout chờ server cloud (Render free tier có thể ngủ ~30–90s).
+  static const signalingTimeout = Duration(seconds: 90);
+
+  /// Timeout thử WebRTC P2P trước khi chuyển relay.
   static const p2pConnectTimeout = Duration(seconds: 8);
 
   static const stunServers = [

@@ -16,4 +16,12 @@ class ChatUser {
       online: json['online'] as bool? ?? false,
     );
   }
+
+  ChatUser copyWith({String? username, String? publicKey, bool? online}) {
+    return ChatUser(
+      username: username ?? this.username,
+      publicKey: publicKey ?? this.publicKey,
+      online: online ?? this.online,
+    );
+  }
 }

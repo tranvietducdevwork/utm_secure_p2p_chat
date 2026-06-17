@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../app_state.dart';
 import '../../config/app_config.dart';
+import '../../core/errors/app_errors.dart';
 import '../../models/user.dart';
 import '../chat/chat_screen.dart';
 
@@ -38,7 +39,7 @@ class _RoomScreenState extends State<RoomScreen> {
     try {
       await context.read<AppState>().joinRoom(_roomController.text);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = AppErrors.friendly(e, context: 'Vào phòng'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -81,24 +82,27 @@ class _RoomScreenState extends State<RoomScreen> {
             ),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await app.logout();
-              if (!context.mounted) return;
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            },
+            onPressed: () => app.logout(),
           ),
         ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: inRoom ? _buildLobby(context, app, peers) : _buildJoinForm(context),
+        child: Column(
+          children: [
+            _StatusBanner(app: app),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: inRoom ? _buildLobby(context, app, peers) : _buildJoinForm(context, app),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildJoinForm(BuildContext context) {
+  Widget _buildJoinForm(BuildContext context, AppState app) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -146,7 +150,18 @@ class _RoomScreenState extends State<RoomScreen> {
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 14),
             child: _loading
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Đang kết nối server...\n(Lần đầu có thể mất ~1 phút)',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  )
                 : const Text('Vào phòng'),
           ),
         ),
@@ -236,6 +251,58 @@ class _RoomScreenState extends State<RoomScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _StatusBanner extends StatelessWidget {
+  const _StatusBanner({required this.app});
+
+  final AppState app;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = app.connectionStatus;
+    final error = app.lastError;
+
+    if (status.isEmpty && error == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Material(
+      color: error != null ? Colors.red.shade50 : Colors.orange.shade50,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Icon(
+              error != null ? Icons.error_outline : Icons.cloud_sync,
+              color: error != null ? Colors.red : Colors.orange,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                error ?? status,
+                style: TextStyle(
+                  color: error != null ? Colors.red.shade900 : Colors.orange.shade900,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            if (!app.isSignalingConnected)
+              TextButton(
+                onPressed: () => app.retrySignalingConnection(),
+                child: const Text('Thử lại'),
+              ),
+            if (error != null)
+              IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                onPressed: app.clearLastError,
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
