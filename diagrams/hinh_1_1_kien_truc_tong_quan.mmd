@@ -1,0 +1,14 @@
+flowchart TB
+    subgraph A["Flutter App A (Android)"]
+        SA[(SQLite local)]
+    end
+    subgraph B["Flutter App B (4G/WiFi)"]
+        SB[(SQLite local)]
+    end
+    S["Signaling Server\n(Render Cloud)\n• Auth JWT\n• Room matching\n• Relay ciphertext\n• KHÔNG lưu tin (mặc định)"]
+
+    A <-->|HTTPS/WSS\nREST + Socket.IO| S
+    B <-->|HTTPS/WSS\nREST + Socket.IO| S
+    A <-->|WebRTC P2P\nhoặc relay E2E ciphertext| B
+    A --> SA
+    B --> SB

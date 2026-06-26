@@ -1,0 +1,7 @@
+flowchart TB
+    P["TẦNG 1 — PRESENTATION\nAuthGate • LoginScreen • RoomScreen\nChatScreen • DemoSettingsSheet"]
+    A["TẦNG 2 — APPLICATION STATE\nAppState (session, phòng, demo, ChatSession map)"]
+    D["TẦNG 3 — DOMAIN\nChatSession • E2ECrypto • PeerConnectionManager"]
+    I["TẦNG 4 — INFRASTRUCTURE\nAuthService • SignalingService\nLocalDbService • DemoService"]
+
+    P --> A --> D --> I

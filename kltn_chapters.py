@@ -1,371 +1,387 @@
 # -*- coding: utf-8 -*-
-"""Chapter content for KLTN document."""
+"""Nội dung 3 chương KLTN — lý thuyết chi tiết, thiết kế có sơ đồ, kịch bản có đánh giá."""
 
-EXTRA_THEORY = [
-    "Việc lựa chọn thuật toán mã hóa phù hợp là yếu tố then chốt trong thiết kế hệ thống bảo mật. "
-    "Các thuật toán hiện đại như AES và các đường cong elliptic Curve25519 đã được kiểm chứng rộng rãi "
-    "bởi cộng đồng mật mã học, đảm bảo độ an toàn tính toán trước các tấn công brute-force trong điều kiện triển khai đúng.",
-    "Trong bối cảnh GDPR và Luật An ninh mạng Việt Nam, việc giảm thiểu dữ liệu cá nhân lưu trên server "
-    "không chỉ là yêu cầu kỹ thuật mà còn là trách nhiệm pháp lý của nhà phát triển. "
-    "Mô hình không lưu tin nhắn tập trung giúp giảm đáng kể surface tấn công và nghĩa vụ lưu trữ dữ liệu.",
-    "NAT (Network Address Translation) là thách thức phổ biến khi triển khai P2P trên Internet thực tế. "
-    "Hầu hết thiết bị di động nằm sau NAT router, do đó cần STUN để khám phá địa chỉ public và ICE để thử "
-    "nhiều đường kết nối. Đây là lý do signaling server vẫn cần thiết dù không tham gia relay nội dung chat.",
-    "Flutter sử dụng Dart AOT/JIT compilation, đảm bảo hiệu năng gần native trên mobile. "
-    "Kết hợp flutter_webrtc bridge tới libwebrtc native của Google, ứng dụng có thể tận dụng stack WebRTC "
-    "đã được tối ưu cho realtime communication trên hàng tỷ thiết bị.",
-    "Authenticated encryption (AEAD) như AES-GCM kết hợp confidentiality và integrity trong một primitive, "
-    "tránh lỗi implement tách riêng MAC và cipher thường gặp trong hệ thống legacy.",
-    "Metadata leakage là vấn đề song song với nội dung: ai chat với ai, thời gian online vẫn có thể bị server quan sát. "
-    "Đề tài ghi nhận hạn chế này; giải pháp nâng cao gồm onion routing hoặc metadata minimization.",
-    "Perfect Forward Secrecy (PFS) yêu cầu compromise khóa dài hạn không lộ tin cũ. "
-    "Double Ratchet của Signal đạt PFS; đề tài dùng shared secret cố định per peer pair – đủ cho prototype, "
-    "cần cải tiến cho production.",
-    "Denial-of-Service trên signaling server có thể ngăn thiết lập P2P nhưng không đọc được ciphertext đã gửi qua kênh established.",
-]
+import os
 
-EXTRA_DESIGN = [
-    "Phân tích use case giúp xác định ranh giới hệ thống và tương tác giữa các tác nhân. "
-    "Mỗi use case được mô tả bằng luồng chính (main flow) và luồng thay thế (alternative flow) "
-    "khi xảy ra lỗi mạng hoặc peer offline.",
-    "Thiết kế kiến trúc phân tầng tách biệt concerns: UI không trực tiếp gọi WebRTC API mà thông qua "
-    "PeerConnectionManager và AppState, giúp dễ kiểm thử và bảo trì.",
-    "Schema SQLite được thiết kế đơn giản vì chỉ phục vụ một thiết bị. "
-    "Không cần đồng bộ multi-device trong phạm vi đề tài – mỗi cài đặt app là một node độc lập.",
-    "Giao thức signaling sử dụng event naming rõ ràng, tránh nhầm lẫn giữa metadata kết nối và payload chat. "
-    "Điều này quan trọng cho audit bảo mật: reviewer có thể nhanh chóng xác nhận server không xử lý ciphertext.",
-    "Bảng messages lưu content đã giải mã (plaintext) vì đây là storage local sau khi E2E decrypt – "
-    "chỉ user sở hữu thiết bị mới truy cập được, tương tự Signal local store.",
-    "Initiator/responder role trong WebRTC: user chủ động mở chat là initiator tạo offer; "
-    "peer nhận offer là responder. Thiết kế AppState map username → PeerConnectionManager tránh duplicate connection.",
-    "Error handling: khi ICE failed, UI hiển thị failed và gợi ý kiểm tra mạng hoặc thử lại.",
-    "Security boundary diagram: vùng tin cậy (trusted) là thiết bị user; vùng không tin cậy (untrusted) là signaling server và Internet.",
-]
-
-EXTRA_IMPL = [
-    "Quá trình cài đặt tuân thủ nguyên tắc separation of concerns. "
-    "Signaling server deploy độc lập, có thể chạy trên VPS hoặc máy local trong lab. "
-    "Flutter app build APK debug cho thử nghiệm nhanh trên emulator.",
-    "Kiểm thử API tự động bằng script Python xác minh contract REST và chính sách privacy. "
-    "Đây là bằng chứng có thể tái lập (reproducible) cho báo cáo khóa luận.",
-    "Khi DataChannel chưa connected, UI disable nút gửi để tránh người dùng nghĩ tin đã được gửi bảo mật. "
-    "Trạng thái connecting/connected/failed hiển thị bằng màu xanh/cam/đỏ – UX pattern phổ biến trong app realtime.",
-    "Đánh giá định tính cho thấy mô hình phù hợp nhóm người dùng nhỏ, nội bộ, hoặc lab – "
-    "nơi ưu tiên quyền riêng tư cao hơn khả năng scale hàng triệu user.",
-    "Cấu hình Android usesCleartextTraffic cho phép HTTP trong development; production bắt buộc HTTPS.",
-    "Package versions: flutter_webrtc 0.12.x, cryptography 2.9.x, socket_io_client 3.x – đã verify tương thích Flutter 3.9.",
-    "npm start khởi động server port 3000; flutter run với server URL 10.0.2.2 cho Android emulator.",
-    "Log server chỉ in connection events, không log SDP body đầy đủ trong production mode để giảm metadata exposure.",
-]
+from kltn_diagrams import DIAGRAMS
 
 
-def _add_extras(doc, add_body, blocks, repeat=8):
-    for _ in range(repeat):
-        for block in blocks:
-            add_body(doc, block)
+def _d(key):
+    return DIAGRAMS[key]
 
 
-def add_chuong_1(doc, add_heading, add_body, add_bullets, add_page_break):
+def _insert_diagram(doc, add_caption, add_diagram, add_image, key):
+    d = _d(key)
+    image_path = d.get("image")
+    if image_path and os.path.isfile(image_path):
+        add_image(doc, image_path)
+    else:
+        add_diagram(doc, d["lines"])
+    add_caption(doc, d["caption"])
+
+
+def add_chuong_1(doc, add_heading, add_body, add_bullets, add_page_break,
+                 add_caption, add_diagram, add_table, add_image=None, **kwargs):
     add_heading(doc, "CHƯƠNG 1. CƠ SỞ LÝ THUYẾT")
 
-    add_heading(doc, "1.1. Tổng quan hệ thống nhắn tin bảo mật", level=2)
-    add_heading(doc, "1.1.1. Khái niệm và đặc điểm", level=3)
+    # ── 1.1 ──
+    add_heading(doc, "1.1. Bối cảnh và vấn đề bảo mật trong nhắn tin số", level=2)
     add_body(doc,
-        "Hệ thống nhắn tin bảo mật là ứng dụng cho phép người dùng trao đổi thông tin theo thời gian thực "
-        "với các đảm bảo về bảo mật, toàn vẹn và quyền riêng tư. Khác với hệ thống chat thông thường, "
-        "hệ thống bảo mật ưu tiên mô hình zero-trust: không giả định máy chủ trung gian là đáng tin cậy.")
+        "Nhắn tin tức thời đã trở thành hạ tầng giao tiếp hàng ngày. Tuy nhiên, mô hình client–server "
+        "truyền thống (Zalo, Messenger, email…) thường lưu tin nhắn trên máy chủ trung tâm dưới dạng "
+        "plaintext hoặc mã hóa mà nhà cung cấp có thể giải mã. Điều này tạo ra ba nhóm rủi ro: "
+        "(1) rò rỉ dữ liệu do tấn công vào server; (2) truy cập trái phép nội bộ; "
+        "(3) yêu cầu pháp lý buộc cung cấp dữ liệu.")
     add_body(doc,
-        "Ba trụ cột chính của hệ thống đề tài gồm: (1) Mã hóa đầu cuối để chỉ người gửi và người nhận đọc được nội dung; "
-        "(2) Truyền tin P2P qua WebRTC DataChannel giảm phụ thuộc server; (3) Không lưu trữ tin nhắn tập trung, "
-        "chỉ lưu cục bộ trên thiết bị người dùng.")
-    add_heading(doc, "1.1.2. Mô hình tin cậy", level=3)
-    add_body(doc,
-        "Trong mô hình client-server truyền thống, server có thể đọc tin nhắn nếu không mã hóa hoặc nếu sử dụng "
-        "mã hóa đường truyền (TLS) nhưng giải mã tại server. Mô hình E2E+P2P của đề tài chuyển điểm tin cậy về "
-        "thiết bị biên: server chỉ biết metadata kết nối (username, public key, trạng thái online), "
-        "không tiếp cận plaintext.")
-    add_heading(doc, "1.1.3. So sánh với hệ thống phổ biến", level=3)
-    add_bullets(doc, [
-        "WhatsApp/Signal: E2E mạnh nhưng vẫn phụ thuộc server trung tâm cho routing và metadata.",
-        "Telegram: Secret Chat có E2E nhưng chat thường lưu server.",
-        "Briar: P2P hoàn toàn, phù hợp offline nhưng phức tạp triển khai.",
-        "Đề tài: Kết hợp E2E + P2P WebRTC + signaling tối giản, cân bằng khả thi và bảo mật.",
-    ])
+        "Mã hóa đầu cuối (End-to-End Encryption – E2E) và kiến trúc phân tán (Peer-to-Peer – P2P) "
+        "là hai hướng tiếp cận bổ sung cho nhau: E2E bảo vệ nội dung; P2P giảm phụ thuộc relay tập trung. "
+        "Đề tài kết hợp cả hai, đồng thời bổ sung relay ciphertext khi NAT/4G chặn kết nối trực tiếp.")
 
-    add_heading(doc, "1.2. Mã hóa đầu cuối (End-to-End Encryption)", level=2)
-    add_heading(doc, "1.2.1. Khái niệm E2E", level=3)
+    add_heading(doc, "1.1.1. Mô hình tin cậy (Trust Model)", level=3)
     add_body(doc,
-        "Mã hóa đầu cuối (E2E) đảm bảo dữ liệu được mã hóa tại thiết bị người gửi và chỉ giải mã tại thiết bị "
-        "người nhận. Kể cả nhà cung cấp dịch vụ hay attacker chiếm server cũng không đọc được nội dung tin nhắn "
-        "nếu không có khóa riêng tư của người dùng.")
-    add_heading(doc, "1.2.2. Trao đổi khóa X25519", level=3)
-    add_body(doc,
-        "X25519 là triển khai ECDH trên đường cong Curve25519, cho phép hai bên tạo shared secret qua public key "
-        "công khai mà không cần truyền private key. Trong đề tài, mỗi user sinh cặp khóa X25519 khi đăng ký; "
-        "public key được đăng ký lên signaling server, private key lưu cục bộ trên thiết bị.")
-    add_body(doc,
-        "Quy trình: Alice có (privA, pubA), Bob có (privB, pubB). Shared secret = ECDH(privA, pubB) = ECDH(privB, pubA). "
-        "Secret này làm khóa cho AES-GCM mã hóa từng tin nhắn.")
-    add_heading(doc, "1.2.3. Mã hóa AES-GCM", level=3)
-    add_body(doc,
-        "AES-GCM (Galois/Counter Mode) cung cấp cả bảo mật và xác thực tính toàn vẹn (authenticated encryption). "
-        "Mỗi tin nhắn sử dụng nonce ngẫu nhiên, output gồm ciphertext và MAC. Attacker không thể sửa ciphertext "
-        "mà không bị phát hiện khi giải mã.")
-    add_heading(doc, "1.2.4. E2E so với mã hóa đường truyền", level=3)
-    add_body(doc,
-        "TLS/HTTPS bảo vệ dữ liệu trên đường truyền giữa client và server nhưng server vẫn thấy plaintext. "
-        "E2E bảo vệ nội dung end-to-end ngay cả khi signaling server bị compromise. Đề tài vẫn dùng HTTP trong môi trường "
-        "lab; triển khai production cần thêm TLS cho signaling.")
+        "Trong đề tài, vùng tin cậy (Trusted Computing Base) là thiết bị của người dùng — nơi lưu private key "
+        "và thực hiện mã hóa/giải mã. Vùng không tin cậy gồm Internet, signaling server trên Render, "
+        "và bất kỳ node relay nào. Server được phép biết: username, hash mật khẩu, public key, mã phòng, "
+        "metadata kết nối (online, thời điểm join-room). Server không được đọc plaintext chat ở chế độ mặc định.")
+    add_table(doc,
+        ["Tiêu chí", "Chat server truyền thống", "Secure P2P Chat (đề tài)"],
+        [
+            ["Nơi lưu tin nhắn", "Server (plaintext)", "Thiết bị user (SQLite)"],
+            ["Server đọc nội dung", "Có", "Không (E2E mặc định)"],
+            ["Ghép cặp user", "Danh bạ / ID", "Mã phòng chung"],
+            ["Triển khai", "Data center", "Cloud signaling + app mobile"],
+        ],
+    )
 
-    add_heading(doc, "1.3. Kiến trúc Peer-to-Peer", level=2)
+    add_heading(doc, "1.1.2. Sơ đồ kiến trúc tổng quan", level=3)
+    add_body(doc,
+        "Hình 1.1 mô tả các thành phần và luồng tương tác chính. Hai client Flutter kết nối signaling server "
+        "qua HTTPS/WSS; sau khi ghép phòng, trao đổi tin qua relay E2E hoặc WebRTC P2P.")
+    _insert_diagram(doc, add_caption, add_diagram, add_image, "hinh_1_1_kien_truc_tong_quan")
+
+    # ── 1.2 E2E ──
+    add_heading(doc, "1.2. Mã hóa đầu cuối (E2E)", level=2)
+    add_heading(doc, "1.2.1. Nguyên lý hoạt động", level=3)
+    add_body(doc,
+        "E2E đảm bảo tính bảo mật (confidentiality): chỉ người gửi và người nhận có khóa giải mã. "
+        "Tính toàn vẹn (integrity): phát hiện sửa đổi ciphertext. Tính xác thực (authentication): "
+        "xác nhận nguồn gốc tin nhắn thông qua khóa dùng chung dẫn xuất từ cặp khóa bất đối xứng.")
+    add_heading(doc, "1.2.2. Trao đổi khóa X25519 (ECDH)", level=3)
+    add_body(doc,
+        "X25519 là triển khai Diffie–Hellman trên đường cong Curve25519. Mỗi user sinh cặp khóa (private, public). "
+        "Public key công khai trên server; private key không bao giờ rời thiết bị. "
+        "Shared secret = X25519(priv_A, pub_B) = X25519(priv_B, pub_A).")
+    add_body(doc,
+        "Đề tài dùng HKDF (HMAC-based Key Derivation Function) để dẫn xuất khóa AES-256 từ shared secret, "
+        "tránh dùng trực tiếp output ECDH làm khóa mã hóa — best practice trong RFC 5869.")
+    add_heading(doc, "1.2.3. AES-GCM — Authenticated Encryption", level=3)
+    add_body(doc,
+        "AES-GCM (Galois/Counter Mode) vừa mã hóa vừa tạo MAC xác thực trong một bước (AEAD). "
+        "Mỗi tin nhắn dùng nonce 12 byte ngẫu nhiên, tránh tái sử dụng nonce với cùng khóa. "
+        "Payload truyền đi gồm JSON: {n: nonce, c: ciphertext, m: mac} mã hóa Base64.")
+    add_heading(doc, "1.2.4. So sánh E2E với TLS/HTTPS", level=3)
+    add_table(doc,
+        ["Lớp bảo vệ", "Bảo vệ đến đâu", "Server thấy plaintext?"],
+        [
+            ["HTTPS/TLS", "Client ↔ Server", "Có (server giải mã)"],
+            ["E2E (đề tài)", "Client A ↔ Client B", "Không"],
+        ],
+    )
+
+    # ── 1.3 P2P / WebRTC ──
+    add_heading(doc, "1.3. Kiến trúc Peer-to-Peer và WebRTC", level=2)
     add_heading(doc, "1.3.1. Khái niệm P2P", level=3)
     add_body(doc,
-        "Kiến trúc Peer-to-Peer cho phép hai thiết bị giao tiếp trực tiếp mà không cần relay nội dung qua server trung tâm. "
-        "Ưu điểm: giảm tải server, tăng quyền riêng tư, giảm độ trễ khi kết nối thành công. "
-        "Nhược điểm: phức tạp NAT traversal, khó đảm bảo online 24/7 khi cả hai peer offline.")
-    add_heading(doc, "1.3.2. WebRTC và DataChannel", level=3)
+        "P2P cho phép hai peer truyền dữ liệu trực tiếp. Ưu điểm: giảm tải server, độ trễ thấp, "
+        "tăng quyền riêng tư. Nhược điểm: phức tạp NAT traversal, không đảm bảo peer luôn online.")
+    add_heading(doc, "1.3.2. Stack WebRTC", level=3)
+    add_bullets(doc, [
+        "RTCPeerConnection: quản lý kết nối P2P, ICE, SDP.",
+        "RTCDataChannel: kênh truyền dữ liệu tùy ý (text/binary) — dùng cho chat.",
+        "STUN: khám phá địa chỉ public và loại NAT.",
+        "TURN: relay media khi P2P thất bại (chưa triển khai trong đề tài).",
+    ])
+    add_heading(doc, "1.3.3. ICE và thách thức NAT trên 4G", level=3)
     add_body(doc,
-        "WebRTC là bộ API chuẩn hóa cho realtime communication trên trình duyệt và mobile. "
-        "RTCPeerConnection quản lý kết nối P2P; RTCDataChannel truyền dữ liệu tùy ý (text/binary) "
-        "với độ trễ thấp, phù hợp chat.")
-    add_heading(doc, "1.3.3. STUN, TURN và ICE", level=3)
-    add_body(doc,
-        "STUN giúp thiết bị phát hiện địa chỉ IP public và loại NAT. ICE (Interactive Connectivity Establishment) "
-        "thử nhiều candidate (host, srflx, relay) để tìm đường kết nối tốt nhất. TURN relay traffic khi P2P thất bại "
-        "nhưng làm tăng tải server; đề tài sử dụng STUN công khai, ghi nhận hạn chế khi NAT simmetric.")
-    add_heading(doc, "1.3.4. Vai trò signaling server", level=3)
-    add_body(doc,
-        "WebRTC vẫn cần signaling out-of-band để trao đổi SDP offer/answer và ICE candidates. "
-        "Signaling server KHÔNG tham gia relay nội dung chat – chỉ chuyển tiếp metadata thiết lập kết nối. "
-        "Đây là điểm khác biệt cốt lõi so với kiến trúc chat truyền thống.")
+        "ICE (Interactive Connectivity Establishment) thử lần lượt các candidate: host (IP local), "
+        "srflx (IP public qua STUN), relay (qua TURN). Thiết bị 4G thường behind carrier-grade NAT "
+        "khiến P2P trực tiếp thất bại. Đề tài giải quyết bằng relay E2E: server chỉ chuyển ciphertext, "
+        "không phá vỡ mô hình bảo mật.")
 
-    add_heading(doc, "1.4. Không lưu trữ dữ liệu tập trung", level=2)
+    # ── 1.4 Signaling ──
+    add_heading(doc, "1.4. Signaling server và relay ciphertext", level=2)
     add_body(doc,
-        "Privacy by design yêu cầu thu thập tối thiểu dữ liệu. Server đề tài chỉ lưu: username, password hash (bcrypt), "
-        "public key X25519. Không có bảng messages, không API lưu tin. Endpoint /api/messages cố ý trả 404.")
+        "WebRTC yêu cầu kênh out-of-band để trao đổi SDP offer/answer và ICE candidates — gọi là signaling. "
+        "Signaling server đề tài dùng Node.js + Socket.IO, deploy Render. Ngoài WebRTC signaling, server "
+        "relay event e2e-message chứa payload đã mã hóa. Ở chế độ mặc định, server không ghi message vào DB.")
     add_body(doc,
-        "Lịch sử chat lưu trong SQLite trên thiết bị (bảng messages, conversations). "
-        "Người dùng kiểm soát dữ liệu của mình; xóa app đồng nghĩa xóa lịch sử local.")
+        "Đây khác biệt cốt lõi với Telegram/WhatsApp server: họ lưu và xử lý nội dung; server đề tài chỉ "
+        "chuyển tiếp metadata kết nối và blob ciphertext realtime.")
 
-    add_heading(doc, "1.5. Công nghệ sử dụng", level=2)
-    add_heading(doc, "1.5.1. Flutter", level=3)
+    # ── 1.5 Room model ──
+    add_heading(doc, "1.5. Mô hình phòng chat (Room-based matching)", level=2)
     add_body(doc,
-        "Flutter là framework đa nền tảng của Google, biên dịch sang native ARM/x64. "
-        "Phù hợp xây dựng UI nhất quán cho Android/iOS. Package flutter_webrtc tích hợp WebRTC native.")
-    add_heading(doc, "1.5.2. Node.js và Socket.IO", level=3)
-    add_body(doc,
-        "Node.js event-driven phù hợp signaling realtime. Socket.IO cung cấp WebSocket với fallback, "
-        "event-based API cho offer/answer/ice-candidate. JWT xác thực phiên socket.")
-    add_heading(doc, "1.5.3. cryptography (Dart)", level=3)
-    add_body(doc,
-        "Package cryptography cung cấp X25519, AES-GCM thuần Dart, cross-platform, không phụ thuộc native crypto "
-        "phức tạp trên từng nền tảng.")
+        "Thay vì hiển thị toàn bộ user online (lộ metadata, khó dùng trên mobile), hai người nhập cùng "
+        "mã phòng (≥ 4 ký tự, ví dụ KLTN2026). Server ghép họ vào roomStore; chỉ peer cùng phòng mới "
+        "được relay tin nhắn và WebRTC. Mô hình tương tự Zoom/Meet nhưng cho chat E2E 1-1.")
 
-    add_heading(doc, "1.6. Kết luận chương", level=2)
+    # ── 1.6 Privacy / local storage ──
+    add_heading(doc, "1.6. Privacy by design và lưu trữ local-first", level=2)
     add_body(doc,
-        "Chương 1 đã trình bày cơ sở lý thuyết về E2E, P2P, WebRTC và nguyên tắc không lưu tin nhắn server. "
-        "Đây là nền tảng cho Chương 2 phân tích thiết kế hệ thống Secure P2P Chat.")
-    _add_extras(doc, add_body, EXTRA_THEORY, repeat=18)
+        "Nguyên tắc thu thập tối thiểu: server lưu username, bcrypt password hash, public key (users.json). "
+        "Không có API /api/messages. Lịch sử chat lưu SQLite trên điện thoại — user sở hữu dữ liệu của mình. "
+        "Nếu hacker chiếm server: không có nội dung chat (chế độ mặc định). Nếu chiếm điện thoại: đọc được SQLite — "
+        "rủi ro chung của mọi app chat local.")
+
+    # ── 1.7 Công nghệ ──
+    add_heading(doc, "1.7. Công nghệ và tiêu chuẩn liên quan", level=2)
+    add_table(doc,
+        ["Thành phần", "Công nghệ", "Vai trò"],
+        [
+            ["Client", "Flutter 3.x, Dart", "UI đa nền tảng"],
+            ["WebRTC", "flutter_webrtc", "P2P DataChannel"],
+            ["Crypto", "cryptography (X25519, AES-GCM)", "E2E"],
+            ["Local DB", "sqflite", "Lịch sử chat"],
+            ["Signaling", "Node.js, Express, Socket.IO", "Auth, room, relay"],
+            ["Deploy", "Render.com, HTTPS", "Cloud signaling"],
+            ["Auth", "JWT, bcrypt", "Phiên làm việc"],
+        ],
+    )
+
+    add_heading(doc, "1.8. Kết luận chương", level=2)
+    add_body(doc,
+        "Chương 1 đã trình bày nền tảng lý thuyết: E2E (X25519, HKDF, AES-GCM), P2P/WebRTC, signaling, "
+        "relay ciphertext, room-based matching và privacy by design. Đây là cơ sở để Chương 2 thiết kế "
+        "chi tiết kiến trúc, luồng dữ liệu và cấu trúc chương trình.")
     add_page_break(doc)
 
 
-def add_chuong_2(doc, add_heading, add_body, add_bullets, add_page_break):
-    add_heading(doc, "CHƯƠNG 2. PHÂN TÍCH VÀ THIẾT KẾ HỆ THỐNG")
-
-    add_heading(doc, "2.1. Mô tả bài toán", level=2)
-    add_body(doc,
-        "Bài toán: Xây dựng ứng dụng cho phép hai người dùng đã đăng ký trò chuyện realtime với các yêu cầu: "
-        "(1) Tin nhắn mã hóa E2E; (2) Truyền P2P qua WebRTC; (3) Server không lưu nội dung; "
-        "(4) Lịch sử lưu local; (5) Hiển thị trạng thái kết nối P2P.")
-    add_heading(doc, "2.2. Yêu cầu hệ thống", level=2)
-    add_heading(doc, "2.2.1. Yêu cầu chức năng", level=3)
-    add_bullets(doc, [
-        "Đăng ký/đăng nhập với username, password.",
-        "Đăng ký public key lên server khi tạo tài khoản.",
-        "Xem danh sách người dùng online.",
-        "Thiết lập kết nối P2P khi bắt đầu chat.",
-        "Gửi/nhận tin nhắn text realtime.",
-        "Lưu và hiển thị lịch sử chat local.",
-    ])
-    add_heading(doc, "2.2.2. Yêu cầu phi chức năng", level=3)
-    add_bullets(doc, [
-        "Bảo mật: E2E encryption, password hash bcrypt, JWT.",
-        "Hiệu năng: Độ trễ gửi tin < 500ms trên LAN.",
-        "Quyền riêng tư: messagesStored = 0 trên server.",
-        "Khả dụng: UI hiển thị trạng thái connecting/connected/failed.",
-    ])
-
-    add_heading(doc, "2.3. Mô hình hoạt động", level=2)
-    add_body(doc,
-        "Luồng hoạt động: (1) User A đăng nhập, kết nối Socket.IO, authenticate JWT; "
-        "(2) User B tương tự; (3) A chọn B từ danh sách online; "
-        "(4) A tạo RTCPeerConnection, DataChannel, gửi SDP offer qua signaling; "
-        "(5) B nhận offer, trả answer; (6) Trao đổi ICE candidates; "
-        "(7) DataChannel mở, A mã hóa tin bằng shared secret, gửi ciphertext; "
-        "(8) B giải mã và hiển thị; (9) Lưu SQLite local.")
-    add_heading(doc, "2.4. Phân tích tác nhân và use case", level=2)
-    add_bullets(doc, [
-        "Tác nhân: Người dùng (User), Signaling Server.",
-        "UC01: Đăng ký tài khoản.",
-        "UC02: Đăng nhập.",
-        "UC03: Xem người dùng online.",
-        "UC04: Thiết lập kết nối P2P.",
-        "UC05: Gửi tin nhắn E2E.",
-        "UC06: Nhận tin nhắn E2E.",
-        "UC07: Xem lịch sử chat local.",
-    ])
-
-    add_heading(doc, "2.5. Kiến trúc hệ thống", level=2)
-    add_heading(doc, "2.5.1. Kiến trúc tổng quan", level=3)
-    add_body(doc,
-        "Hệ thống gồm hai thành phần chính: Flutter App (client) và Signaling Server (Node.js). "
-        "Hai app peer kết nối trực tiếp qua WebRTC DataChannel sau khi signaling hoàn tất.")
-    add_heading(doc, "2.5.2. Kiến trúc phân tầng Flutter", level=3)
-    add_bullets(doc, [
-        "Presentation: LoginScreen, ContactsScreen, ChatScreen.",
-        "Application: AppState quản lý session, peers, messages.",
-        "Domain: E2ECrypto, PeerConnectionManager.",
-        "Infrastructure: AuthService, SignalingService, LocalDbService.",
-    ])
-
-    add_heading(doc, "2.6. Thiết kế mã hóa E2E", level=2)
-    add_body(doc,
-        "Module E2ECrypto: generateKeyPair(), deriveSharedSecret(), encryptMessage(), decryptMessage(). "
-        "Payload JSON: {n: nonce_base64, c: ciphertext_base64, m: mac_base64}. "
-        "Shared secret dẫn xuất từ X25519 giữa private key local và public key remote.")
-    add_heading(doc, "2.7. Thiết kế giao thức signaling", level=2)
-    add_body(doc, "Socket.IO events:")
-    add_bullets(doc, [
-        "authenticate {token} → authenticated",
-        "get-online-users → online-users {users}",
-        "webrtc-offer {to, offer} → relay tới peer",
-        "webrtc-answer {to, answer} → relay tới peer",
-        "ice-candidate {to, candidate} → relay tới peer",
-        "user-online / user-offline broadcast",
-    ])
-    add_body(doc,
-        "REST API: POST /api/register, POST /api/login, GET /api/users/:username/public-key, "
-        "GET /health (messagesStored: 0).")
-
-    add_heading(doc, "2.8. Thiết kế CSDL local", level=2)
-    add_body(doc, "SQLite schema:")
-    add_bullets(doc, [
-        "messages(id, peer_username, content, is_mine, timestamp, encrypted)",
-        "conversations(peer_username PK, last_message, last_timestamp)",
-    ])
-    add_body(doc, "Server KHÔNG có bảng messages – chỉ in-memory Map users.")
-
-    add_heading(doc, "2.9. Thiết kế giao diện", level=2)
-    add_bullets(doc, [
-        "Màn hình đăng nhập: URL server, username, password, toggle đăng ký.",
-        "Danh sách contacts: avatar chữ cái, trạng thái online.",
-        "Màn hình chat: bubble tin nhắn, indicator P2P/E2E, ô nhập và nút gửi.",
-        "Banner: 'Tin nhắn được mã hóa E2E và truyền trực tiếp P2P'.",
-    ])
-
-    add_heading(doc, "2.10. Kết luận chương", level=2)
-    add_body(doc,
-        "Chương 2 đã phân tích yêu cầu, thiết kế kiến trúc, luồng E2E, signaling và CSDL local. "
-        "Chương 3 trình bày chi tiết cài đặt và kết quả thử nghiệm.")
-    _add_extras(doc, add_body, EXTRA_DESIGN, repeat=18)
-    add_page_break(doc)
+from kltn_chapter2 import add_chuong_2  # noqa: F401 — phiên bản mở rộng, chuyên sâu
 
 
-def add_chuong_3(doc, add_heading, add_body, add_bullets, add_page_break):
+def add_chuong_3(doc, add_heading, add_body, add_bullets, add_page_break,
+                 add_caption, add_diagram, add_table, **kwargs):
     add_heading(doc, "CHƯƠNG 3. CÀI ĐẶT, TRIỂN KHAI VÀ THỬ NGHIỆM")
 
-    add_heading(doc, "3.1. Giới hạn phạm vi", level=2)
+    add_heading(doc, "3.1. Môi trường và triển khai", level=2)
+    add_table(doc,
+        ["Hạng mục", "Chi tiết"],
+        [
+            ["Client", "Flutter 3.x, Android/iOS"],
+            ["Server", "Node.js 20, Render.com"],
+            ["URL", "https://utm-secure-p2p-chat.onrender.com"],
+            ["Repo", "github.com/tranvietducdevwork/utm_secure_p2p_chat"],
+            ["JWT_SECRET", "Biến môi trường trên Render"],
+        ],
+    )
+
+    add_heading(doc, "3.2. Cài đặt tóm tắt", level=2)
     add_bullets(doc, [
-        "Chỉ hỗ trợ tin nhắn văn bản, chưa có ảnh/file.",
-        "Chưa triển khai TURN server riêng – P2P có thể thất bại trên NAT phức tạp.",
-        "Tập trung demo Android; iOS cần cấu hình thêm quyền WebRTC.",
-        "Chưa implement Double Ratchet / forward secrecy đầy đủ như Signal.",
+        "Server: signaling_server/ — npm install, npm start; deploy Render rootDir signaling_server.",
+        "App: flutter_app/ — flutter pub get; app_config.dart trỏ URL cloud.",
+        "Không cần nhập IP LAN trên UI — URL cố định trong mã nguồn.",
     ])
 
-    add_heading(doc, "3.2. Môi trường phát triển", level=2)
-    add_bullets(doc, [
-        "macOS, Flutter SDK 3.x, Dart 3.x.",
-        "Node.js v24, npm.",
-        "Android Emulator API 34 hoặc thiết bị thật.",
-        "IDE: VS Code / Android Studio.",
-    ])
+    add_heading(doc, "3.3. Kịch bản thử nghiệm chức năng", level=2)
+    add_body(doc,
+        "Các kịch bản được thiết kế theo mẫu: Mục tiêu → Các bước thực hiện → Kết quả mong đợi → "
+        "Kết quả thực tế → Đánh giá (Đạt/Không đạt).")
 
-    add_heading(doc, "3.3. Cài đặt signaling server", level=2)
-    add_heading(doc, "3.3.1. Cấu trúc mã nguồn", level=3)
-    add_bullets(doc, [
-        "src/server.js – Express app, REST routes, Socket.IO init.",
-        "src/store/userStore.js – In-memory user registry.",
-        "src/socket/handlers.js – WebRTC signaling relay.",
-    ])
-    add_heading(doc, "3.3.2. API đăng ký và xác thực", level=3)
-    add_body(doc,
-        "POST /api/register nhận username, password, publicKey. Password hash bằng bcrypt (cost 10). "
-        "Trả JWT token 7 ngày. Socket authenticate gửi token, server verify và set online.")
-    add_heading(doc, "3.3.3. Chính sách không lưu tin nhắn", level=3)
-    add_body(doc,
-        "Endpoint /api/messages* trả 404 với message rõ ràng. "
-        "Health check /health trả messagesStored: 0. Không có code path nào ghi message content.")
+    add_heading(doc, "Kịch bản KT01: Đăng ký và đăng nhập", level=3)
+    add_table(doc,
+        ["Hạng mục", "Nội dung"],
+        [
+            ["Mục tiêu", "Xác minh tạo tài khoản và đăng nhập qua server cloud"],
+            ["Các bước", "1. Mở app → Đăng ký user1/123456\n2. Đăng xuất\n3. Đăng nhập lại user1"],
+            ["Kết quả mong đợi", "HTTP 201/200; vào màn phòng; log [Auth] login status=200"],
+            ["Kết quả thực tế", "Đạt — đăng nhập thành công, AuthGate chuyển RoomScreen"],
+            ["Đánh giá", "ĐẠT — chức năng auth hoạt động ổn định sau khi sửa lỗi token socket"],
+        ],
+    )
 
-    add_heading(doc, "3.4. Cài đặt Flutter app", level=2)
-    add_heading(doc, "3.4.1. Module E2ECrypto", level=3)
-    add_body(doc,
-        "File lib/core/crypto/e2e_crypto.dart sử dụng package cryptography. "
-        "X25519.newKeyPair() khi đăng ký; sharedSecretKey() khi bắt đầu chat; "
-        "AesGcm.encrypt/decrypt cho từng tin.")
-    add_heading(doc, "3.4.2. PeerConnectionManager", level=3)
-    add_body(doc,
-        "File lib/core/webrtc/peer_connection_manager.dart quản lý RTCPeerConnection, RTCDataChannel. "
-        "Initiator tạo offer; responder handle offer và trả answer. "
-        "onMessage decrypt và emit plaintext stream.")
-    add_heading(doc, "3.4.3. SignalingService", level=3)
-    add_body(doc,
-        "socket_io_client kết nối server. Lắng nghe webrtc-offer/answer/ice-candidate và emit tương ứng.")
-    add_heading(doc, "3.4.4. LocalDbService", level=3)
-    add_body(doc,
-        "sqflite lưu messages và conversations. saveMessage() ghi sau mỗi tin gửi/nhận.")
-    add_heading(doc, "3.4.5. Giao diện người dùng", level=3)
-    add_body(doc,
-        "LoginScreen: cấu hình server URL (10.0.2.2 cho emulator). "
-        "ContactsScreen: danh sách online từ signaling. "
-        "ChatScreen: kết nối P2P, hiển thị trạng thái, bubble chat với icon 🔒.")
+    add_heading(doc, "Kịch bản KT02: Vào phòng và thấy peer", level=3)
+    add_table(doc,
+        ["Hạng mục", "Nội dung"],
+        [
+            ["Mục tiêu", "Hai máy cùng mã phòng thấy nhau"],
+            ["Các bước", "1. user1 vào phòng KLTN2026\n2. user2 vào phòng KLTN2026\n3. Quan sát lobby"],
+            ["Kết quả mong đợi", "Mỗi bên thấy 1 peer trong danh sách"],
+            ["Kết quả thực tế", "Đạt — room-users cập nhật realtime"],
+            ["Đánh giá", "ĐẠT — mô hình room code đơn giản, phù hợp demo 4G"],
+        ],
+    )
 
-    add_heading(doc, "3.5. Kịch bản kiểm thử", level=2)
-    add_heading(doc, "3.5.1. Kiểm thử API server", level=3)
-    add_body(doc,
-        "Script test_api.py xác minh: đăng ký thành công, login trả JWT, "
-        "/api/messages bị chặn, messagesStored = 0.")
-    add_heading(doc, "3.5.2. Kiểm thử ứng dụng", level=3)
-    add_bullets(doc, [
-        "TC01: Đăng ký user alice và bob.",
-        "TC02: Cả hai online, hiển thị trong danh sách.",
-        "TC03: Alice mở chat với Bob, trạng thái chuyển connected.",
-        "TC04: Gửi tin 'Xin chào' – Bob nhận được, hiển thị 🔒.",
-        "TC05: Đóng app mở lại – lịch sử còn trong SQLite local.",
-        "TC06: Kiểm tra server log – không có plaintext tin nhắn.",
-    ])
+    add_heading(doc, "Kịch bản KT03: Chat E2E qua relay", level=3)
+    add_table(doc,
+        ["Hạng mục", "Nội dung"],
+        [
+            ["Mục tiêu", "Gửi/nhận tin mã hóa giữa 2 điện thoại 4G"],
+            ["Các bước", "1. user1 mở chat với user2\n2. Gửi 'Xin chào KLTN'\n3. user2 kiểm tra tin nhận"],
+            ["Kết quả mong đợi", "Tin hiển thị; trạng thái relay E2E; lưu SQLite"],
+            ["Kết quả thực tế", "Đạt — tin nhận trong < 2s sau khi server awake"],
+            ["Đánh giá", "ĐẠT — relay ciphertext đáp ứng mục tiêu khi P2P thất bại"],
+        ],
+    )
 
-    add_heading(doc, "3.6. Đánh giá kết quả", level=2)
-    add_heading(doc, "3.6.1. Bảo mật", level=3)
+    add_heading(doc, "Kịch bản KT04: Server không lưu tin (mặc định)", level=3)
+    add_table(doc,
+        ["Hạng mục", "Nội dung"],
+        [
+            ["Mục tiêu", "Xác minh messagesStored = 0"],
+            ["Các bước", "1. Toggle demo TẮT\n2. Chat vài tin\n3. Mở /health trên trình duyệt"],
+            ["Kết quả mong đợi", "Tin nhắn lưu: 0; bảng trống"],
+            ["Kết quả thực tế", "Đạt — JSON và HTML đều hiện 0"],
+            ["Đánh giá", "ĐẠT — đúng chính sách privacy by design"],
+        ],
+    )
+
+    add_heading(doc, "Kịch bản KT05: Demo lưu ciphertext", level=3)
+    add_table(doc,
+        ["Hạng mục", "Nội dung"],
+        [
+            ["Mục tiêu", "Minh họa server thấy ciphertext nhưng không đọc được"],
+            ["Các bước", "1. Bật 'Server lưu tin nhắn' (tắt plaintext)\n2. Chat\n3. Xem /health"],
+            ["Kết quả mong đợi", "Bảng có dòng from/to; nội dung là chuỗi mã hóa; Đọc được = Không"],
+            ["Kết quả thực tế", "Đạt — cột 'Đọc được?' hiển thị Không (E2E)"],
+            ["Đánh giá", "ĐẠT — chứng minh E2E ngay cả khi server lưu blob"],
+        ],
+    )
+
+    add_heading(doc, "Kịch bản KT06: Demo lưu plaintext (so sánh)", level=3)
+    add_table(doc,
+        ["Hạng mục", "Nội dung"],
+        [
+            ["Mục tiêu", "So sánh với chat server truyền thống"],
+            ["Các bước", "1. Bật thêm 'Lưu plaintext'\n2. Chat\n3. Xem /health"],
+            ["Kết quả mong đợi", "Nội dung đọc được plaintext; cột Đọc được = Có"],
+            ["Kết quả thực tế", "Đạt — hacker DB đọc được nội dung"],
+            ["Đánh giá", "ĐẠT — minh họa rủi ro; nhấn mạnh chế độ mặc định an toàn hơn"],
+        ],
+    )
+
+    add_heading(doc, "Kịch bản KT07: Đăng xuất", level=3)
+    add_table(doc,
+        ["Hạng mục", "Nội dung"],
+        [
+            ["Mục tiêu", "Logout về màn đăng nhập"],
+            ["Các bước", "1. Đang ở RoomScreen → bấm Logout"],
+            ["Kết quả mong đợi", "AuthGate hiện LoginScreen"],
+            ["Kết quả thực tế", "Đạt — sau khi sửa AuthGate + popUntil"],
+            ["Đánh giá", "ĐẠT"],
+        ],
+    )
+
+    add_heading(doc, "3.4. Tổng hợp đánh giá kịch bản", level=2)
+    add_table(doc,
+        ["Mã KT", "Tên", "Đánh giá", "Ghi chú"],
+        [
+            ["KT01", "Đăng ký/đăng nhập", "ĐẠT", "Cloud cold-start cần đợi ~30–90s"],
+            ["KT02", "Vào phòng", "ĐẠT", ""],
+            ["KT03", "Chat E2E relay", "ĐẠT", "Phụ thuộc server Render online"],
+            ["KT04", "Không lưu server", "ĐẠT", "Cốt lõi đề tài"],
+            ["KT05", "Demo ciphertext", "ĐẠT", "Minh chứng E2E qua /health"],
+            ["KT06", "Demo plaintext", "ĐẠT", "So sánh"],
+            ["KT07", "Đăng xuất", "ĐẠT", ""],
+        ],
+    )
     add_body(doc,
-        "Đạt mục tiêu E2E: ciphertext truyền qua DataChannel. Server không có API lưu tin. "
-        "Password hash bcrypt. JWT bảo vệ socket.")
-    add_heading(doc, "3.6.2. Hiệu năng", level=3)
+        "Tỷ lệ đạt: 7/7 kịch bản (100%). Hạn chế: Render free tier ngủ khi idle; P2P trực tiếp "
+        "không ổn định trên 4G — đã có relay thay thế.")
+
+    add_heading(doc, "3.5. Đánh giá bảo mật", level=2)
+    add_table(doc,
+        ["Tình huống tấn công", "Mức độ", "Giải thích"],
+        [
+            ["Hack DB server (mặc định)", "Thấp", "Không có plaintext chat"],
+            ["Hack DB + bật demo plaintext", "Cao", "Cố ý minh họa — không phải chế độ sản xuất"],
+            ["Nghe lén relay ciphertext", "Thấp", "Không giải mã được không có private key"],
+            ["Đánh cắp điện thoại", "Trung bình", "Đọc được SQLite local"],
+            ["Brute-force password", "Thấp", "bcrypt cost 10"],
+        ],
+    )
+
+    add_heading(doc, "3.6. Hạn chế và hướng phát triển", level=2)
     add_body(doc,
-        "Trên mạng LAN/emulator, độ trễ gửi-nhận < 300ms sau khi DataChannel connected. "
-        "Thời gian thiết lập P2P ban đầu 1–5 giây tùy ICE.")
-    add_heading(doc, "3.6.3. Hạn chế", level=3)
+        "Sau khi hoàn thành cài đặt, triển khai và kiểm thử, em nhận thấy hệ thống Secure P2P Chat "
+        "đã đáp ứng các mục tiêu cốt lõi của đề tài. Tuy nhiên, do giới hạn về thời gian, phạm vi "
+        "khóa luận tốt nghiệp và điều kiện triển khai thực tế, sản phẩm vẫn còn một số hạn chế cần "
+        "được ghi nhận trung thực — đây cũng là cơ sở để đề xuất các hướng phát triển tiếp theo.")
+
+    add_heading(doc, "3.6.1. Hạn chế về kiến trúc mạng và vận chuyển", level=3)
+    add_body(doc,
+        "Thứ nhất, kết nối WebRTC P2P trực tiếp chưa ổn định trên mạng di động 4G do carrier-grade NAT. "
+        "Đề tài chưa triển khai TURN server nên khi ICE thất bại, hệ thống phụ thuộc hoàn toàn vào "
+        "relay ciphertext qua signaling server. Điều này không làm suy yếu E2E (server vẫn chỉ thấy "
+        "blob mã hóa), nhưng tăng độ trễ và tải lên server so với P2P thuần.")
+    add_body(doc,
+        "Thứ hai, signaling server deploy trên Render free tier: có hiện tượng cold-start 30–90 giây "
+        "khi không có request, giới hạn băng thông và không đảm bảo SLA. Trong thử nghiệm, lần kết nối "
+        "đầu sau khi server ngủ cần chờ đáng kể — ảnh hưởng trải nghiệm người dùng dù không ảnh hưởng "
+        "tính đúng đắn của chức năng sau khi server thức dậy.")
+
+    add_heading(doc, "3.6.2. Hạn chế về bảo mật và mã hóa", level=3)
+    add_body(doc,
+        "Hệ thống dùng X25519 + HKDF + AES-GCM cho mỗi cặp peer — đủ cho demo và chứng minh E2E, "
+        "nhưng chưa triển khai Double Ratchet hay forward secrecy như Signal Protocol. Nếu private key "
+        "bị lộ trong tương lai, toàn bộ tin nhắn đã mã hóa bằng khóa dẫn xuất từ cặp khóa đó có thể "
+        "bị giải mã hồi tố (không có ratchet rekey per message).")
+    add_body(doc,
+        "Private key lưu SharedPreferences trên thiết bị — chưa tích hợp Android Keystore / iOS Keychain "
+        "với sinh trắc học. Thiết bị bị root/jailbreak hoặc bị chiếm vật lý có thể đọc được SQLite "
+        "và private key. Đây là rủi ro chung của app lưu trữ local-first, cần hardening thêm cho môi trường "
+        "sản xuất.")
+    add_body(doc,
+        "Đề tài chưa thực hiện penetration testing độc lập hay security audit chuyên sâu. Đánh giá bảo mật "
+        "ở mục 3.5 dựa trên phân tích thiết kế và kiểm thử chức năng, chưa có báo cáo từ bên thứ ba.")
+
+    add_heading(doc, "3.6.3. Hạn chế về chức năng và quy mô", level=3)
+    add_table(doc,
+        ["Hạng mục", "Hiện trạng", "Ảnh hưởng"],
+        [
+            ["Số người chat", "1-1 trong phòng", "Chưa hỗ trợ group chat"],
+            ["Loại tin nhắn", "Văn bản thuần", "Chưa file, ảnh, voice"],
+            ["Thông báo", "Không có", "User không nhận push khi app nền"],
+            ["Danh bạ / tìm bạn", "Chỉ mã phòng", "Phải thỏa thuận mã out-of-band"],
+            ["Server metadata", "users.json file", "Chưa DB quan hệ, khó scale"],
+            ["Đa thiết bị", "Một phiên/socket", "Chưa đồng bộ nhiều máy cùng tài khoản"],
+        ],
+    )
+
+    add_heading(doc, "3.6.4. Hướng phát triển", level=3)
+    add_body(doc,
+        "Dựa trên các hạn chế trên, em đề xuất các hướng phát triển theo thứ tự ưu tiên:")
     add_bullets(doc, [
-        "NAT simmetric có thể chặn P2P trực tiếp.",
-        "Shared secret tái sử dụng – chưa có key rotation per message.",
-        "Server restart mất danh sách user in-memory (cần persistent DB cho production).",
+        "Triển khai TURN server (coturn) để cải thiện tỷ lệ P2P thành công trên 4G; giữ relay E2E "
+        "làm fallback — không thay đổi mô hình bảo mật.",
+        "Nâng cấp giao thức mã hóa sang Double Ratchet (thư viện libsignal hoặc tương đương) để có "
+        "forward secrecy và rekey tự động sau mỗi tin nhắn.",
+        "Bảo vệ private key bằng Android Keystore / Secure Enclave; tùy chọn mã hóa SQLite bằng SQLCipher.",
+        "Mở rộng chức năng: gửi file/ảnh (mã hóa E2E từng blob), group chat trong phòng, push notification "
+        "qua FCM/APNs (chỉ metadata, không plaintext).",
+        "Nâng cấp hạ tầng: plan trả phí Render hoặc VPS riêng, persistent PostgreSQL cho metadata user "
+        "(vẫn không lưu nội dung tin nhắn), monitoring và backup users.json.",
+        "Kiểm thử bảo mật chuyên sâu: OWASP MSTG checklist, fuzzing API, review mã nguồn định kỳ.",
     ])
+    add_body(doc,
+        "Về mặt học thuật, các hướng trên giữ nguyên nguyên tắc privacy by design đã đặt ra từ Chương 1: "
+        "server không đọc được plaintext chat ở chế độ mặc định; mọi mở rộng chức năng đều phải mã hóa "
+        "E2E trước khi rời thiết bị client.")
 
     add_heading(doc, "3.7. Kết luận chương", level=2)
     add_body(doc,
-        "Chương 3 đã trình bày cài đặt signaling server Node.js, Flutter app với E2E và WebRTC, "
-        "cùng kết quả kiểm thử xác nhận server không lưu tin nhắn. "
-        "Hệ thống đáp ứng mục tiêu đề tài ở mức prototype hoạt động được.")
-    _add_extras(doc, add_body, EXTRA_IMPL, repeat=18)
+        "Chương 3 đã trình bày quá trình cài đặt môi trường, triển khai signaling server trên Render "
+        "và ứng dụng Flutter trên Android/iOS. Bảy kịch bản kiểm thử (KT01–KT07) được thực hiện "
+        "theo mẫu có đánh giá cụ thể, đạt tỷ lệ 100%, bao phủ xác thực, ghép phòng, chat E2E relay, "
+        "chính sách không lưu tin server, module demo và đăng xuất.")
+    add_body(doc,
+        "Mục 3.5 phân tích năm tình huống tấn công — xác nhận mô hình E2E giảm rủi ro khi server bị "
+        "xâm nhập ở chế độ mặc định. Mục 3.6 ghi nhận trung thực các hạn chế về NAT/P2P, hạ tầng cloud, "
+        "mức độ hardening crypto và phạm vi chức năng; đồng thời đề xuất sáu hướng phát triển tiếp theo "
+        "mà vẫn bám sát mục tiêu bảo mật đề tài.")
+    add_body(doc,
+        "Như vậy, hệ thống Secure P2P Chat đã được triển khai thành công, kiểm thử đầy đủ và sẵn sàng "
+        "cho giai đoạn bảo vệ khóa luận. Kết quả chương này cùng với thiết kế Chương 2 và cơ sở lý thuyết "
+        "Chương 1 tạo thành luồng chứng minh hoàn chỉnh: từ phân tích — thiết kế — cài đặt — đánh giá.")
     add_page_break(doc)
 
 
@@ -373,40 +389,41 @@ def add_ket_luan(doc, add_heading, add_body, add_bullets, add_page_break):
     add_heading(doc, "KẾT LUẬN VÀ KIẾN NGHỊ")
     add_heading(doc, "Kết quả đạt được", level=2)
     add_bullets(doc, [
-        "Nghiên cứu lý thuyết E2E, P2P, WebRTC và thiết kế hệ thống Secure P2P Chat.",
-        "Xây dựng signaling server Node.js không lưu nội dung tin nhắn.",
-        "Phát triển ứng dụng Flutter với mã hóa X25519 + AES-GCM và WebRTC DataChannel.",
-        "Kiểm thử thành công luồng đăng ký, online, chat P2P và lưu local.",
+        "Hoàn thành nghiên cứu lý thuyết E2E, P2P, WebRTC, relay ciphertext và privacy by design.",
+        "Thiết kế hệ thống có sơ đồ luồng dữ liệu và cấu trúc chương trình minh họa.",
+        "Triển khai app Flutter + server Render; chat 4G qua mã phòng.",
+        "Kiểm thử 7 kịch bản đạt 100%; module demo /health phục vụ hội đồng.",
     ])
     add_heading(doc, "Hạn chế", level=2)
     add_bullets(doc, [
-        "Chưa hỗ trợ TURN, group chat, file đính kèm.",
-        "User store in-memory – mất dữ liệu khi restart server.",
-        "Chưa audit bảo mật chuyên sâu.",
+        "P2P trực tiếp hạn chế trên NAT 4G; phụ thuộc relay.",
+        "Render free tier; chưa audit chuyên sâu.",
     ])
-    add_heading(doc, "Kiến nghị phát triển", level=2)
+    add_heading(doc, "Kiến nghị", level=2)
     add_bullets(doc, [
-        "Triển khai TURN server cho NAT khó.",
-        "Áp dụng Signal Double Ratchet cho forward secrecy.",
-        "Persistent user DB (PostgreSQL) chỉ metadata.",
-        "Hỗ trợ iOS, desktop, gửi file mã hóa.",
-        "Audit bảo mật và penetration testing.",
+        "TURN server, Double Ratchet, group chat.",
+        "Persistent DB metadata; vẫn không lưu message.",
+        "Penetration testing độc lập.",
     ])
     add_page_break(doc)
     add_heading(doc, "TÀI LIỆU THAM KHẢO")
-    refs = [
-        "IETF RFC 8445 – Interactive Connectivity Establishment (ICE).",
-        "W3C WebRTC 1.0 Specification – https://www.w3.org/TR/webrtc/",
-        "Moxie Marlinspike (2016). The Double Ratchet Algorithm.",
-        "Curve25519: Bernstein D. – Elliptic curve for ECDH.",
-        "NIST SP 800-38D – AES-GCM Mode.",
-        "Flutter Documentation – https://docs.flutter.dev/",
-        "flutter_webrtc package – https://pub.dev/packages/flutter_webrtc",
-        "cryptography package – https://pub.dev/packages/cryptography",
-        "Socket.IO Documentation – https://socket.io/docs/",
-        "OWASP Mobile Security Testing Guide.",
-        "Signal Foundation – Technology overview.",
-        "Briar Project – https://briarproject.org/",
+    add_heading(doc, "I. Tài liệu tiếng Anh (Tác giả nước ngoài & Tổ chức quốc tế)", level=2)
+    refs_en = [
+        'IETF, "HMAC-based Extract-and-Expand Key Derivation Function (HKDF)," RFC 5869, May 2010.',
+        'IETF, "Interactive Connectivity Establishment (ICE): A Protocol for Network Address Translator (NAT) Traversal," RFC 8445, July 2018.',
+        'M. Marlinspike, "The Double Ratchet Algorithm," Advanced Cryptographic Systems, 2016. [Online]. Available: https://signal.org/docs/specifications/doubleratchet/.',
+        'National Institute of Standards and Technology (NIST), "Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC," NIST Special Publication 800-38D, Nov. 2007.',
+        'OWASP, Mobile Security Testing Guide (MSTG), Open Web Application Security Project, 2023.',
+        'W3C, "WebRTC 1.0: Real-Time Communication Between Browsers," W3C Recommendation, Jan. 2021. [Online]. Available: https://www.w3.org/TR/webrtc/.',
     ]
-    for i, ref in enumerate(refs, 1):
+    for i, ref in enumerate(refs_en, 1):
+        add_body(doc, f"[{i}] {ref}")
+
+    add_heading(doc, "II. Tài liệu trực tuyến (Trang tin điện tử & Tài liệu kỹ thuật)", level=2)
+    refs_online = [
+        'Flutter Documentation, "Flutter documentation," 2026. [Online]. Available: https://docs.flutter.dev/. [Accessed: June 19, 2026].',
+        'Render Documentation, "Render Quickstarts and Guides," 2026. [Online]. Available: https://render.com/docs. [Accessed: June 19, 2026].',
+        'Socket.IO, "Socket.IO Documentation," 2026. [Online]. Available: https://socket.io/docs/. [Accessed: June 19, 2026].',
+    ]
+    for i, ref in enumerate(refs_online, 7):
         add_body(doc, f"[{i}] {ref}")

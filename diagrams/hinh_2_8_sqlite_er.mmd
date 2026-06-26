@@ -1,0 +1,15 @@
+erDiagram
+    MESSAGES {
+        int id PK "AUTO"
+        text peer_username
+        text content "sau decrypt"
+        int is_mine "0/1"
+        int timestamp
+        int encrypted "flag E2E"
+    }
+    CONVERSATIONS {
+        text peer_username PK
+        text last_message
+        int last_timestamp
+    }
+    CONVERSATIONS ||--o{ MESSAGES : "peer_username"

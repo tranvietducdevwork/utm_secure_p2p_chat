@@ -1,6 +1,6 @@
-const messageStore = require('./messageStore');
-const demoSettings = require('./demoSettings');
-const userStore = require('./userStore');
+const messageStore = require('./store/messageStore');
+const demoSettings = require('./store/demoSettings');
+const userStore = require('./store/userStore');
 
 function escapeHtml(value) {
   return String(value ?? '')

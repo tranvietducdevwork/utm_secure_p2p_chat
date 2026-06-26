@@ -1,0 +1,25 @@
+sequenceDiagram
+    autonumber
+    participant A as User A (App)
+    participant S as Signaling Server
+    participant B as User B (App)
+
+    Note over A,B: Xác thực phiên làm việc
+    A->>S: authenticate {JWT token}
+    S-->>A: authenticated OK
+    B->>S: authenticate {JWT token}
+    S-->>B: authenticated OK
+
+    Note over A,B: Vào cùng mã phòng
+    A->>S: join-room {KLTN2026}
+    B->>S: join-room {KLTN2026}
+
+    Note over S: roomStore ghép cùng phòng
+
+    S-->>A: room-joined {peers: [User B]}
+    S-->>B: room-joined {peers: [User A]}
+
+    Note over A: Thấy User B trong danh sách peer
+    Note over B: Thấy User A trong danh sách peer
+
+    A->>A: Chọn User B → mở ChatScreen

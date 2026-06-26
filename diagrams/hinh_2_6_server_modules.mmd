@@ -1,0 +1,18 @@
+flowchart TB
+    ROOT["server.js\n(Express + Socket.IO)"]
+
+    ROOT --> REST["REST API"]
+    ROOT --> HEALTH["GET /health"]
+    ROOT --> SOCK["Socket.IO → handlers.js"]
+
+    REST --> US["userStore.js → users.json"]
+    REST --> RS["roomStore.js (in-memory)"]
+    REST --> DS["demoSettings.js"]
+    REST --> MS["messageStore.js (demo only)"]
+
+    HEALTH --> HP["healthPage.js\n(HTML dashboard)"]
+
+    SOCK --> H1["authenticate (JWT)"]
+    SOCK --> H2["join-room / room-users"]
+    SOCK --> H3["webrtc-offer/answer/ice"]
+    SOCK --> H4["e2e-message (relay)"]

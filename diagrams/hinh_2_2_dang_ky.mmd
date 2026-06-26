@@ -1,0 +1,13 @@
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant F as Flutter App
+    participant S as Signaling Server
+
+    U->>F: Nhập username / password
+    F->>F: Sinh cặp khóa X25519
+    F->>S: POST /api/register<br/>{username, password, publicKey}
+    S->>S: bcrypt hash password<br/>lưu users.json
+    S-->>F: {token, user}
+    F->>F: Lưu JWT + private key<br/>(SharedPreferences)
+    F-->>U: Vào màn phòng

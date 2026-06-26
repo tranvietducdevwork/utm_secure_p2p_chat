@@ -62,7 +62,10 @@ class DemoService {
         )
         .timeout(AppConfig.signalingTimeout);
     if (response.statusCode != 200) {
-      throw Exception('Không cập nhật được cài đặt demo');
+      throw Exception(
+        'Không cập nhật được cài đặt demo (HTTP ${response.statusCode}). '
+        'Server có thể chưa deploy bản mới — thử mở $serverUrl/api/demo/settings trên trình duyệt.',
+      );
     }
     return DemoSettings.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }

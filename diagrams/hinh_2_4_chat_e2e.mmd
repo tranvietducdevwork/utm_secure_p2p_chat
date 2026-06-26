@@ -1,0 +1,15 @@
+sequenceDiagram
+    autonumber
+    participant A as Alice (App)
+    participant S as Server
+    participant B as Bob (App)
+
+    A->>A: ECDH X25519 + HKDF → shared key
+    A->>A: AES-GCM encrypt(plaintext)
+    A->>S: e2e-message {to: bob, payload: ciphertext}
+    Note over S: relay — KHÔNG giải mã
+    S->>B: forward ciphertext
+    B->>B: decrypt
+    B->>B: Hiển thị UI
+    B->>B: Lưu SQLite
+    Note over S: messagesStored = 0 (mặc định)

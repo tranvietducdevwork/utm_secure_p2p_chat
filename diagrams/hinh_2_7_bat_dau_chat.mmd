@@ -1,0 +1,20 @@
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant R as RoomScreen
+    participant AS as AppState
+    participant CS as ChatSession
+    participant SG as Signaling
+    participant P as Peer
+
+    U->>R: Chọn peer
+    R->>AS: connectToPeer()
+    AS->>CS: start()
+    CS->>CS: derive key, bật relay mode
+    CS->>SG: thử P2P
+    U->>R: Gửi tin (sendMessage)
+    R->>AS: sendMessage()
+    AS->>CS: encrypt
+    CS->>SG: e2e-message
+    SG->>P: forward ciphertext
+    P->>P: decrypt

@@ -2,14 +2,16 @@
 # -*- coding: utf-8 -*-
 """Generate KLTN Word document from Mau 1.docx template."""
 
+import os
 from docx import Document
-from docx.shared import Pt, Emu
+from docx.shared import Pt, Emu, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING, WD_BREAK
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
 TEMPLATE = "/Users/tranvietduc/Downloads/Mau 1.docx"
-OUTPUT = "/Users/tranvietduc/Downloads/KLTN_Tran_Viet_Duc_P2P_Chat.docx"
+OUTPUT = "/Users/tranvietduc/Desktop/KLTN_Tran_Viet_Duc_P2P_Chat_v3.docx"
+OUTPUT_BACKUP = "/Users/tranvietduc/Desktop/KLTN/secure_p2p_chat/KLTN_Tran_Viet_Duc_P2P_Chat_v3.docx"
 
 STUDENT = "TRẦN VIỆT ĐỨC"
 STUDENT_TITLE = "Trần Việt Đức"
@@ -96,6 +98,52 @@ def add_bullets(doc, items):
         add_p(doc, f"• {item}", style="List Paragraph", line_spacing=1.5)
 
 
+def add_image(doc, image_path, width=Inches(5.8)):
+    """Chèn ảnh PNG căn giữa — dùng cho sơ đồ Mermaid."""
+    if not os.path.isfile(image_path):
+        add_p(doc, f"[Thiếu ảnh: {image_path}]", align=WD_ALIGN_PARAGRAPH.CENTER)
+        return
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run()
+    run.add_picture(image_path, width=width)
+    add_p(doc, "", space_after=Pt(3))
+
+
+def add_caption(doc, text):
+    """Chú thích hình — đặt bên dưới ảnh/sơ đồ, căn giữa, in đậm."""
+    p = add_p(doc, text, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=Pt(6), space_after=Pt(12))
+    for r in p.runs:
+        set_run(r, bold=True, size=Pt(12))
+
+
+def add_diagram(doc, lines):
+    """Chèn sơ đồ ASCII — căn giữa, chú thích đặt phía dưới."""
+    for line in lines:
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run(line)
+        set_run(run, name="Courier New", size=Pt(9))
+        p.paragraph_format.line_spacing = 1.0
+        p.paragraph_format.space_after = Pt(0)
+    add_p(doc, "", space_after=Pt(3))
+
+
+def add_table(doc, headers, rows):
+    table = doc.add_table(rows=1 + len(rows), cols=len(headers))
+    table.style = "Table Grid"
+    hdr = table.rows[0].cells
+    for i, h in enumerate(headers):
+        hdr[i].text = h
+        for p in hdr[i].paragraphs:
+            for r in p.runs:
+                set_run(r, bold=True, size=Pt(11))
+    for ri, row in enumerate(rows):
+        for ci, val in enumerate(row):
+            table.rows[ri + 1].cells[ci].text = str(val)
+    add_p(doc, "", space_after=Pt(6))
+
+
 def add_page_break(doc):
     p = doc.add_paragraph()
     p.add_run().add_break(WD_BREAK.PAGE)
@@ -141,7 +189,10 @@ def add_glossary_table(doc):
         ("AES-GCM", "Advanced Encryption Standard – Galois/Counter Mode"),
         ("X25519", "Thuật toán trao đổi khóa ECDH trên đường cong elliptic"),
         ("JWT", "JSON Web Token – Xác thực phiên làm việc"),
-        ("Signaling", "Kênh trao đổi metadata thiết lập kết nối P2P"),
+        ("Signaling", "Kênh trao đổi metadata thiết lập kết nối P2P và relay ciphertext"),
+        ("Relay E2E", "Chuyển tiếp tin nhắn đã mã hóa qua server realtime, không lưu mặc định"),
+        ("Room code", "Mã phòng dùng để ghép cặp người dùng chat"),
+        ("Render", "Nền tảng PaaS deploy signaling server lên cloud"),
     ]
     for term, definition in terms:
         row = tbl.add_row().cells
@@ -232,24 +283,25 @@ def add_thong_tin_do_an(doc):
     add_body(doc, f"Sinh viên thực hiện: {STUDENT_TITLE}")
     add_heading(doc, "Mục tiêu", level=2)
     add_bullets(doc, [
-        "Nghiên cứu cơ chế mã hóa đầu cuối và kiến trúc Peer-to-Peer trong nhắn tin thời gian thực.",
-        "Xây dựng ứng dụng Flutter kết nối P2P qua WebRTC DataChannel.",
-        "Triển khai signaling server không lưu trữ nội dung tin nhắn.",
-        "Đánh giá tính bảo mật, độ trễ và khả năng vận hành thực tế.",
+        "Nghiên cứu mã hóa đầu cuối và kiến trúc P2P/relay trong nhắn tin thời gian thực.",
+        "Xây dựng ứng dụng Flutter chat theo mã phòng, hoạt động qua 4G/WiFi.",
+        "Triển khai signaling server trên cloud Render — không lưu tin nhắn mặc định.",
+        "Xây dựng module demo /health phục vụ trình bày trước hội đồng.",
     ])
     add_heading(doc, "Nội dung chính", level=2)
     add_bullets(doc, [
-        "Tổng hợp lý thuyết E2E, P2P, WebRTC, STUN/ICE.",
-        "Phân tích yêu cầu, thiết kế kiến trúc và giao thức signaling.",
-        "Cài đặt module mã hóa X25519 + AES-GCM trên Flutter.",
-        "Triển khai server Node.js và kiểm thử luồng chat P2P.",
+        "Tổng hợp lý thuyết E2E, P2P, WebRTC, relay ciphertext, room-based matching.",
+        "Phân tích yêu cầu, thiết kế kiến trúc Flutter + Node.js trên Render.",
+        "Cài đặt mã hóa X25519 + AES-GCM, ChatSession relay-first.",
+        "Kiểm thử 2 thiết bị thật và kịch bản demo bảo mật /health.",
     ])
     add_heading(doc, "Kết quả chính đạt được", level=2)
     add_bullets(doc, [
-        "Hoàn thiện ứng dụng nhắn tin bảo mật trên Flutter.",
-        "Server xác nhận messagesStored = 0 – không lưu tin nhắn tập trung.",
-        "Tin nhắn được mã hóa trước khi truyền qua kênh P2P.",
-        "Lịch sử chat lưu cục bộ trên thiết bị người dùng.",
+        "Ứng dụng nhắn tin bảo mật hoàn chỉnh trên Flutter (Android/iOS).",
+        "Server cloud https://utm-secure-p2p-chat.onrender.com — messagesStored = 0 mặc định.",
+        "Chat E2E qua relay hoạt động trên 4G/WiFi giữa hai điện thoại.",
+        "Dashboard /health và toggle demo so sánh E2E vs server lưu plaintext.",
+        "Lịch sử chat lưu cục bộ SQLite trên thiết bị.",
     ])
     add_page_break(doc)
 
@@ -267,9 +319,10 @@ def add_mo_dau(doc):
         "mã hóa đầu cuối (End-to-End Encryption – E2E) và kiến trúc phân tán, nơi nội dung hội thoại "
         "chỉ có thể đọc được tại thiết bị của người gửi và người nhận.")
     add_body(doc,
-        "Đề tài của em hướng tới xây dựng hệ thống nhắn tin thời gian thực ưu tiên quyền riêng tư: "
-        "tin nhắn được mã hóa E2E bằng X25519 và AES-GCM, truyền trực tiếp qua WebRTC DataChannel theo mô hình P2P, "
-        "trong khi server chỉ đảm nhiệm signaling (trao đổi SDP, ICE candidate, public key) mà không lưu nội dung tin nhắn.")
+        "Đề tài xây dựng hệ thống nhắn tin thời gian thực ưu tiên quyền riêng tư: "
+        "tin nhắn mã hóa E2E bằng X25519 và AES-GCM; truyền qua WebRTC P2P hoặc relay ciphertext "
+        "khi NAT/4G chặn P2P; hai người dùng ghép cặp bằng mã phòng; signaling server deploy trên "
+        "Render không lưu nội dung tin nhắn ở chế độ mặc định.")
     add_heading(doc, "2. Mục đích nghiên cứu", level=2)
     add_bullets(doc, [
         "Nghiên cứu lý thuyết về mã hóa đầu cuối và kiến trúc Peer-to-Peer.",
@@ -294,9 +347,10 @@ def add_mo_dau(doc):
     ])
     add_heading(doc, "4.2. Phạm vi nghiên cứu", level=3)
     add_bullets(doc, [
-        "Ứng dụng Flutter trên Android (có thể mở rộng iOS).",
-        "Tin nhắn văn bản realtime, chưa hỗ trợ file đính kèm và nhóm chat.",
-        "Signaling server Node.js + Socket.IO, STUN công khai của Google.",
+        "Ứng dụng Flutter trên Android và iOS.",
+        "Tin nhắn văn bản realtime 1-1 trong phòng, chưa file đính kèm.",
+        "Signaling server Node.js deploy Render; STUN Google công khai.",
+        "Module demo /health cho trình bày hội đồng.",
     ])
     add_heading(doc, "4.3. Phương pháp nghiên cứu", level=3)
     add_bullets(doc, [
@@ -311,9 +365,27 @@ def add_mo_dau(doc):
 from kltn_chapters import add_chuong_1, add_chuong_2, add_chuong_3, add_ket_luan
 
 
+def _chapter_kwargs(doc):
+    return dict(
+        doc=doc,
+        add_heading=add_heading,
+        add_body=add_body,
+        add_bullets=add_bullets,
+        add_page_break=add_page_break,
+        add_caption=add_caption,
+        add_diagram=add_diagram,
+        add_image=add_image,
+        add_table=add_table,
+    )
+
+
 def main():
-    doc = Document(TEMPLATE)
-    clear_body(doc)
+    if os.path.isfile(TEMPLATE):
+        doc = Document(TEMPLATE)
+        clear_body(doc)
+    else:
+        print(f"Không tìm thấy template: {TEMPLATE} — tạo document mới.")
+        doc = Document()
 
     add_cover(doc)
     add_page_break(doc)
@@ -322,24 +394,31 @@ def main():
     add_thong_tin_do_an(doc)
     add_heading(doc, "DANH SÁCH HÌNH ẢNH")
     add_bullets(doc, [
-        "Hình 1.1. Kiến trúc tổng quan hệ thống P2P E2E",
-        "Hình 2.1. Biểu đồ use case tổng quát",
-        "Hình 2.2. Sequence diagram thiết lập kết nối P2P",
-        "Hình 2.3. Sơ đồ kiến trúc phân tầng Flutter app",
-        "Hình 2.4. Thiết kế CSDL local SQLite",
-        "Hình 3.1. Giao diện đăng nhập/đăng ký",
-        "Hình 3.2. Danh sách người dùng online",
-        "Hình 3.3. Màn hình chat P2P với trạng thái E2E",
-        "Hình 3.4. Kết quả kiểm thử API server (messagesStored = 0)",
+        "Hình 1.1: Kiến trúc tổng quan — Flutter app, Render signaling, relay E2E",
+        "Hình 2.1: Sơ đồ ngữ cảnh hệ thống",
+        "Hình 2.2: Luồng dữ liệu đăng ký tài khoản",
+        "Hình 2.3: Luồng dữ liệu vào phòng và ghép cặp peer",
+        "Hình 2.4: Luồng dữ liệu gửi tin nhắn E2E (relay mode)",
+        "Hình 2.5: Sơ đồ cấu trúc chương trình Flutter (phân tầng)",
+        "Hình 2.6: Sơ đồ cấu trúc chương trình Signaling Server",
+        "Hình 2.7: Biểu đồ trình tự — bắt đầu chat E2E",
+        "Hình 2.8: Sơ đồ CSDL SQLite trên thiết bị",
+        "Hình 3.1: Giao diện đăng nhập/đăng ký",
+        "Hình 3.2: Màn hình nhập mã phòng và lobby",
+        "Hình 3.3: Màn hình chat E2E (relay/P2P)",
+        "Hình 3.4: Trang /health — messagesStored = 0 (chế độ mặc định)",
+        "Hình 3.5: Demo toggle và bảng tin nhắn trên /health",
+        "Hình 3.6: Hai điện thoại chat qua 4G cùng mã phòng",
     ])
     add_page_break(doc)
     add_heading(doc, "GIẢI THÍCH THUẬT NGỮ")
     add_glossary_table(doc)
     add_page_break(doc)
     add_mo_dau(doc)
-    add_chuong_1(doc, add_heading, add_body, add_bullets, add_page_break)
-    add_chuong_2(doc, add_heading, add_body, add_bullets, add_page_break)
-    add_chuong_3(doc, add_heading, add_body, add_bullets, add_page_break)
+    kw = _chapter_kwargs(doc)
+    add_chuong_1(**kw)
+    add_chuong_2(**kw)
+    add_chuong_3(**kw)
     add_ket_luan(doc, add_heading, add_body, add_bullets, add_page_break)
 
     doc.save(OUTPUT)

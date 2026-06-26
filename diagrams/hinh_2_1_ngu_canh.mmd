@@ -1,0 +1,17 @@
+flowchart LR
+    U["Người dùng A, B"]
+    R["Render (Cloud)"]
+    ST["STUN Google"]
+
+    subgraph SYS["HỆ THỐNG SECURE P2P CHAT"]
+        FA["Flutter App"]
+        SS["Signaling Server"]
+        CS["ChatSession / E2ECrypto / SQLite"]
+        FA --- SS
+        FA --- CS
+    end
+
+    U -->|Đăng ký / Đăng nhập\nNhập mã phòng| SYS
+    SYS -->|Gửi/nhận tin E2E\nXem lịch sử local| U
+    SYS --- R
+    SYS --- ST
